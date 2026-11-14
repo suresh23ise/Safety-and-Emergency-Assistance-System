@@ -1,0 +1,18 @@
+# Local data / secrets
+data/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local test artifacts
+*.log
+cookies.txt
+g.txt
+p.txt
+body.json
+sos_id.txt
+
+# OS
+Thumbs.db
+.DS_Store

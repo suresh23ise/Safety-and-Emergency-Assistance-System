@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="sunset">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aegis Assist — Console</title>
+  <meta name="description" content="Aegis Assist live safety console: location sharing, safety check-ins, SOS alerts and guardian messaging." />
+  <meta name="theme-color" content="#130e0a" />
+  <link rel="icon" type="image/svg+xml" href="/static/assets/logo.svg" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://a.basemaps.cartocdn.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+
+  <script>
+    (function () {
+      try {
+        var root = document.documentElement;
+        var theme = localStorage.getItem("aegis.theme") || "sunset";
+        root.dataset.theme = theme;
+        var scale = parseFloat(localStorage.getItem("aegis.scale") || "1");
+        if (!isNaN(scale)) root.style.setProperty("--app-scale", String(scale));
+        if (localStorage.getItem("aegis.reduce") === "1") root.classList.add("reduce-motion");
+        if (localStorage.getItem("aegis.contrast") === "1") root.classList.add("high-contrast");
+      } catch (e) {}
+    })();
+  </script>
+
+  <link rel="stylesheet" href="/static/css/base.css" />
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+
+<body class="app-page">
+  <div class="app-bg" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/app" aria-label="Aegis Assist console">
+        <img src="/static/assets/logo.svg" alt="" width="38" height="38" />
+        <span>
+          <span class="brand-name">AEGIS <em>ASSIST</em></span>
+          <span class="brand-sub">Safety &amp; Emergency System</span>
+        </span>
+      </a>
+
+      <nav class="nav-pills" id="mainNav" aria-label="Primary navigation"></nav>
+
+      <div class="top-actions">
+        <span class="live-pill" id="livePill" title="Realtime connection">
+          <span class="dot" id="liveDot"></span><span class="label" id="liveLabel">Live</span>
+        </span>
+        <button class="icon-btn" type="button" data-action="notifications" aria-label="Notifications" aria-haspopup="dialog">
+          <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-bell"></use></svg>
+          <span class="badge-dot" id="bellBadge" hidden></span>
+        </button>
+        <button class="icon-btn" type="button" data-open-themes aria-label="Change appearance and accessibility">
+          <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-settings"></use></svg>
+        </button>
+        <button class="profile-btn" type="button" data-action="profile" aria-label="Account menu" aria-haspopup="menu">
+          <span id="topAvatar"></span>
+          <svg class="icon chev" aria-hidden="true"><use href="/static/assets/icons.svg#i-chevron"></use></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main" id="appRoot">
+    <div class="empty" style="min-height:50vh">
+      <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-shield"></use></svg>
+      <strong>Opening your safety console…</strong>
+      <span>Connecting to Aegis Assist</span>
+    </div>
+  </main>
+
+  <div id="modalRoot"></div>
+  <div class="toasts" id="toasts" aria-live="assertive"></div>
+  <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+
+  <noscript><p style="padding:2rem;text-align:center">Aegis Assist requires JavaScript to share live location and send alerts.</p></noscript>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/theme.js"></script>
+  <script src="/static/js/aegis-core.js"></script>
+  <script src="/static/js/aegis-views.js"></script>
+  <script src="/static/js/aegis-views2.js"></script>
+  <script src="/static/js/aegis-render.js"></script>
+  <script src="/static/js/aegis-actions.js"></script>
+  <script src="/static/js/aegis-realtime.js"></script>
+</body>
+</html>

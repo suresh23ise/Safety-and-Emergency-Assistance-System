@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="sunset">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aegis Assist — Safety, always within reach</title>
+  <meta name="description" content="Aegis Assist connects visually impaired people with their guardians through live location, safety check-ins, SOS alerts and two-way messaging." />
+  <meta name="theme-color" content="#130e0a" />
+  <link rel="icon" type="image/svg+xml" href="/static/assets/logo.svg" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <script>
+    // Apply saved appearance before the first paint (no flash).
+    (function () {
+      try {
+        var root = document.documentElement;
+        var theme = localStorage.getItem("aegis.theme") || "sunset";
+        root.dataset.theme = theme;
+        var scale = parseFloat(localStorage.getItem("aegis.scale") || "1");
+        if (!isNaN(scale)) root.style.setProperty("--app-scale", String(scale));
+        if (localStorage.getItem("aegis.reduce") === "1") root.classList.add("reduce-motion");
+        if (localStorage.getItem("aegis.contrast") === "1") root.classList.add("high-contrast");
+      } catch (e) {}
+    })();
+  </script>
+
+  <link rel="stylesheet" href="/static/css/base.css" />
+  <link rel="stylesheet" href="/static/css/login.css" />
+</head>
+
+<body class="login-page">
+  <header class="login-header">
+    <a class="brand" href="/" aria-label="Aegis Assist home">
+      <img src="/static/assets/logo.svg" alt="" width="36" height="36" />
+      <span>
+        <span class="brand-name">AEGIS <em>ASSIST</em></span>
+        <span class="brand-sub">Safety &amp; Emergency System</span>
+      </span>
+    </a>
+    <div class="header-right">
+      <span class="status-chip"><span class="dot animate"></span> Systems operational</span>
+      <button class="theme-trigger" type="button" data-open-themes aria-label="Change appearance and accessibility">
+        <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-settings"></use></svg>
+        <span>Theme</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="login-main">
+    <div class="brand-lockup">
+      <div class="brand-mark-lg">
+        <img src="/static/assets/logo.svg" alt="Aegis Assist shield logo" width="84" height="84" />
+      </div>
+      <p class="brand-kicker">Guardianship, reimagined</p>
+      <h1 class="wordmark"><span>AEGIS</span> <em>ASSIST</em></h1>
+      <p class="brand-tagline">A shared lifeline between a visually impaired person and the people who care for them — live location, gentle check-ins and an SOS that never goes unheard.</p>
+    </div>
+
+    <div class="auth-wrap">
+      <div class="auth-stack" aria-label="Sign in options">
+        <button class="sso sso-google" type="button" data-sso="google">
+          <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-globe"></use></svg>
+          Sign in with Google
+        </button>
+        <button class="sso" type="button" data-sso="apple">
+          <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-apple"></use></svg>
+          Sign in with Apple
+        </button>
+        <button class="sso" type="button" id="emailToggle" aria-expanded="false" aria-controls="emailPanel">
+          <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-mail"></use></svg>
+          Email &amp; Password
+          <svg class="icon sso-chevron" aria-hidden="true"><use href="/static/assets/icons.svg#i-chevron"></use></svg>
+        </button>
+
+        <div class="auth-panel" id="emailPanel">
+          <div class="auth-panel-inner">
+            <div class="segmented" role="tablist" aria-label="Account mode">
+              <button type="button" class="active" data-mode="login" role="tab" aria-selected="true">Sign in</button>
+              <button type="button" data-mode="register" role="tab" aria-selected="false">Create account</button>
+            </div>
+
+            <form class="auth-form" id="authForm" novalidate>
+              <div class="form-error" id="authError" role="alert" hidden>
+                <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-alert"></use></svg>
+                <span id="authErrorText"></span>
+              </div>
+
+              <div class="field" id="nameField" hidden>
+                <label for="authName">Full name</label>
+                <input class="input" id="authName" name="name" type="text" autocomplete="name" placeholder="Ananya Verma" maxlength="60" />
+              </div>
+
+              <div class="field" id="roleField" hidden>
+                <label>I am joining as</label>
+                <div class="role-picker" role="radiogroup" aria-label="Account role">
+                  <button class="role-choice active" type="button" data-role="person" role="radio" aria-checked="true">
+                    <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-user"></use></svg>
+                    <span><strong>Visually impaired</strong><small>Share &amp; call for help</small></span>
+                  </button>
+                  <button class="role-choice" type="button" data-role="guardian" role="radio" aria-checked="false">
+                    <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-users"></use></svg>
+                    <span><strong>Guardian</strong><small>Monitor &amp; respond</small></span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="authEmail">Email address</label>
+                <input class="input" id="authEmail" name="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" required />
+              </div>
+
+              <div class="field" id="phoneField" hidden>
+                <label for="authPhone">Phone number <span style="text-transform:none;letter-spacing:0;font-weight:500">(optional)</span></label>
+                <input class="input" id="authPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+91 98765 43210" maxlength="30" />
+              </div>
+
+              <div class="field">
+                <label for="authPassword">Password</label>
+                <div class="password-wrap">
+                  <input class="input" id="authPassword" name="password" type="password" autocomplete="current-password" placeholder="At least 8 characters" required />
+                  <button class="password-toggle" type="button" id="passwordToggle" aria-label="Show password">
+                    <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-eye"></use></svg>
+                  </button>
+                </div>
+              </div>
+
+              <button class="btn btn-primary btn-block" type="submit" id="authSubmit">
+                <span id="authSubmitLabel">Sign in securely</span>
+                <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-arrow-right"></use></svg>
+              </button>
+              <p class="small faint" style="text-align:center;line-height:1.5">Sessions are protected with signed, HTTP-only cookies.</p>
+            </form>
+          </div>
+        </div>
+
+        <button class="sso" type="button" data-guest>
+          <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-user"></use></svg>
+          Guest Mode
+        </button>
+      </div>
+
+      <div class="demo-zone">
+        <div class="demo-divider">or explore the demo</div>
+        <div class="demo-buttons">
+          <button class="demo-chip" type="button" data-demo="person">
+            <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-shield"></use></svg>
+            Visually impaired demo
+          </button>
+          <button class="demo-chip" type="button" data-demo="guardian">
+            <svg class="icon" aria-hidden="true"><use href="/static/assets/icons.svg#i-users"></use></svg>
+            Guardian demo
+          </button>
+        </div>
+      </div>
+
+      <p class="fineprint">Aegis Assist never sells location data. Only guardians you explicitly link can see your live position and safety history.</p>
+    </div>
+  </main>
+
+  <footer class="login-footer">
+    <span>© 2026 Aegis Assist · <span class="demo-version">Final year project</span></span>
+    <span>Demo account: <strong>ananya@aegis.demo</strong> · <strong>Aegis@123</strong></span>
+    <span class="footer-links"><a href="#" data-open-themes>Accessibility</a><a href="#privacy" onclick="return false">Privacy</a></span>
+  </footer>
+
+  <div id="modalRoot"></div>
+  <div class="toasts" id="toasts" aria-live="assertive"></div>
+  <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/theme.js"></script>
+  <script src="/static/js/login.js"></script>
+</body>
+</html>
