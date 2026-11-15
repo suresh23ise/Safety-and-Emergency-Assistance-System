@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Aegis Assist — login
+   Safety & Emergency Assistance System — login
    ========================================================================== */
 
 body.login-page {
@@ -167,6 +167,20 @@ body.login-page::after {
   text-shadow: 0 0 44px color-mix(in srgb, var(--accent) 32%, transparent);
 }
 
+.wordmark-long {
+  font-size: clamp(1.7rem, 4.4vw, 2.85rem);
+  line-height: 1.14;
+  letter-spacing: .05em;
+  max-width: 22ch;
+}
+.wordmark-long span { display: block; }
+.wordmark-long em {
+  display: block;
+  margin-top: .24rem;
+  letter-spacing: .07em;
+  font-size: .82em;
+}
+
 .brand-tagline {
   margin-top: .85rem;
   color: var(--muted);
@@ -311,45 +325,7 @@ body.login-page::after {
 .role-choice.active { border-color: var(--accent-line); background: var(--accent-soft); }
 .role-choice.active .icon { color: var(--accent); }
 
-/* --------------------------------------------------------------- demo + footer */
-.demo-zone {
-  margin-top: 1.5rem;
-  display: grid;
-  gap: .8rem;
-  justify-items: center;
-  animation: riseIn .7s .16s cubic-bezier(.2, .8, .2, 1) both;
-}
-.demo-divider {
-  display: flex;
-  align-items: center;
-  gap: .8rem;
-  width: 100%;
-  color: var(--faint);
-  font-size: .64rem;
-  letter-spacing: .2em;
-  text-transform: uppercase;
-  font-weight: 700;
-}
-.demo-divider::before,
-.demo-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
-
-.demo-buttons { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
-.demo-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: .42rem;
-  padding: .48rem .8rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface) 55%, transparent);
-  color: var(--muted);
-  font-size: .74rem;
-  font-weight: 600;
-  transition: .18s;
-}
-.demo-chip:hover { color: var(--text); border-color: var(--accent-line); background: var(--accent-soft); }
-.demo-chip .icon { width: .9rem; height: .9rem; color: var(--accent); }
-
+/* --------------------------------------------------------------- footer */
 .fineprint {
   margin-top: 1.35rem;
   color: var(--faint);
@@ -375,85 +351,6 @@ body.login-page::after {
 .login-footer .footer-links { display: flex; gap: 1rem; }
 .login-footer a:hover { color: var(--text); }
 .login-footer strong { color: var(--muted); font-weight: 600; }
-
-.demo-version {
-  display: inline-flex;
-  align-items: center;
-  gap: .4rem;
-  padding: .24rem .55rem;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 700;
-  font-size: .6rem;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-/* --------------------------------------------------------------- sso role dialog */
-.sso-intro {
-  display: flex;
-  align-items: center;
-  gap: .8rem;
-  padding: .85rem;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  margin-bottom: 1rem;
-}
-.sso-intro .sso-logo {
-  width: 42px; height: 42px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: #fff;
-  color: #171512;
-  flex: none;
-}
-.sso-intro .sso-logo.apple { background: #111; color: #fff; border: 1px solid var(--border-strong); }
-.sso-intro .sso-logo .icon { width: 1.2rem; height: 1.2rem; }
-.sso-intro p { font-size: .78rem; color: var(--muted); }
-.sso-intro strong { display: block; font-size: .88rem; color: var(--text); }
-
-.role-cards { display: grid; gap: .6rem; }
-.role-card {
-  display: flex;
-  align-items: center;
-  gap: .9rem;
-  width: 100%;
-  text-align: left;
-  padding: .9rem 1rem;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 40%, transparent);
-  transition: .18s;
-}
-.role-card:hover { border-color: var(--accent-line); background: var(--accent-soft); transform: translateY(-1px); }
-.role-card .role-icon {
-  width: 42px; height: 42px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  color: var(--accent);
-  flex: none;
-}
-.role-card .role-icon .icon { width: 1.2rem; height: 1.2rem; }
-.role-card strong { display: block; font-size: .9rem; }
-.role-card small { display: block; color: var(--muted); font-size: .74rem; margin-top: .1rem; }
-.role-card .icon.arrow { margin-left: auto; width: 1rem; height: 1rem; color: var(--faint); }
-
-.demo-note {
-  margin-top: .95rem;
-  display: flex;
-  align-items: flex-start;
-  gap: .5rem;
-  color: var(--faint);
-  font-size: .7rem;
-  line-height: 1.5;
-}
-.demo-note .icon { width: .9rem; height: .9rem; color: var(--accent); margin-top: .1rem; }
 
 /* --------------------------------------------------------------- responsive */
 @media (max-width: 560px) {

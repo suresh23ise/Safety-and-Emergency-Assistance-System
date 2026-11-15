@@ -1,1 +1,1 @@
-"""Aegis Assist server package."""
+"""Safety & Emergency Assistance System server package."""

@@ -1,4 +1,4 @@
-/* Aegis Assist — rendering, maps & DOM refresh. */
+/* Safety & Emergency Assistance System — rendering, maps & DOM refresh. */
 (function () {
   "use strict";
 
@@ -222,7 +222,7 @@
 
     const root = App.$("appRoot");
     root.innerHTML = App.views.viewHtml();
-    document.title = (App.isPerson() ? "Safety console" : "Guardian console") + " · Aegis Assist";
+    document.title = (App.isPerson() ? "Person console" : "Guardian console") + " · Safety & Emergency Assistance System";
 
     afterRender();
   }

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Aegis Assist logo">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Safety and Emergency Assistance System logo">
   <defs>
     <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#FBEDC7"/>
@@ -10,11 +10,13 @@
       <stop offset="0" stop-color="#332315"/>
       <stop offset="1" stop-color="#150E08"/>
     </linearGradient>
+    <linearGradient id="pulse" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FBEDC7"/>
+      <stop offset=".5" stop-color="#EAC97C"/>
+      <stop offset="1" stop-color="#D2A650"/>
+    </linearGradient>
   </defs>
   <rect width="64" height="64" rx="18" fill="url(#gold)"/>
-  <path d="M31.9 9.5c5.3 3.2 9.6 4.5 14.1 4.8v14.9c0 10.6-5.7 18.7-14.1 23.4-8.4-4.7-14.1-12.8-14.1-23.4V14.3c4.5-.3 8.8-1.6 14.1-4.8Z" fill="url(#ink)"/>
-  <path d="M23.6 29.7c2.2-4.2 5-6.3 8.3-6.3s6.1 2.1 8.3 6.3c-2.2 4.2-5 6.3-8.3 6.3s-6.1-2.1-8.3-6.3Z" fill="none" stroke="#EAC97C" stroke-width="2.6" stroke-linejoin="round"/>
-  <circle cx="31.9" cy="29.7" r="2.7" fill="#EAC97C"/>
-  <path d="M25.6 40.2c1.9 1.9 3.9 2.9 6.3 2.9s4.4-1 6.3-2.9" fill="none" stroke="#EAC97C" stroke-width="2.3" stroke-linecap="round" opacity=".9"/>
-  <path d="M21.4 43.9c3 3 6.5 5 10.5 6 4-1 7.5-3 10.5-6" fill="none" stroke="#EAC97C" stroke-width="2.1" stroke-linecap="round" opacity=".45"/>
+  <path d="M32 8.6c5.7 3.5 10.2 4.9 15.1 5.2v15.1c0 10.8-6 19-15.1 24.3-9.1-5.3-15.1-13.5-15.1-24.3V13.8C21.8 13.5 26.3 12.1 32 8.6Z" fill="url(#ink)"/>
+  <path d="M19.6 32.1h5.9l3.2-8.3 5.2 16.4 3.4-10.4 2.5 2.3h5.2" fill="none" stroke="url(#pulse)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

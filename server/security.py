@@ -79,7 +79,7 @@ def new_id(prefix: str) -> str:
 
 def new_link_code() -> str:
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-    return "AEGIS-" + "".join(secrets.choice(alphabet) for _ in range(4))
+    return "SAFE-" + "".join(secrets.choice(alphabet) for _ in range(4))
 
 
 def normalize_email(email: str) -> str:

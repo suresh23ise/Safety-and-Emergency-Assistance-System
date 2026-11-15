@@ -1,4 +1,4 @@
-/* Aegis Assist — boot, realtime websocket, notifications & tickers. */
+/* Safety & Emergency Assistance System — boot, realtime websocket, notifications & tickers. */
 (function () {
   "use strict";
 
@@ -332,17 +332,11 @@
     const dash = await App.loadDashboard();
     if (!dash) return;
     state.me = dash.me || me;
-    if (dash.readOnly) state.me.role = "guest";
     state.booted = true;
 
     if (App.isPerson()) {
       state.view = "home";
       App.resetCheckinTimer();
-      const loc = dash.location;
-      const stale = !loc || (Date.now() - new Date(loc.ts).getTime()) > 120000;
-      if (stale && App.settings().autoShare && !App.isGuest()) {
-        setTimeout(function () { App.startDemoGps({ quiet: true }); }, 700);
-      }
     } else {
       const people = dash.people || [];
       state.selected = people.length ? people[0].user.id : null;

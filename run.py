@@ -1,4 +1,4 @@
-"""Aegis Assist launcher.
+"""Safety & Emergency Assistance System launcher.
 
 Usage:
     python run.py            # http://127.0.0.1:8000
@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the Aegis Assist server")
+    parser = argparse.ArgumentParser(description="Run the Safety & Emergency Assistance System server")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")))
     parser.add_argument("--no-browser", action="store_true")
@@ -27,7 +27,7 @@ def main() -> None:
     args = parser.parse_args()
 
     url = f"http://{args.host}:{args.port}"
-    print(f"\n  Aegis Assist  ->  {url}\n  Demo login: ananya@aegis.demo / Aegis@123\n")
+    print(f"\n  Safety & Emergency Assistance System  ->  {url}\n")
     if not args.no_browser:
         Timer(1.2, lambda: webbrowser.open(url)).start()
 

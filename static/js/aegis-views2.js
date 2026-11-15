@@ -1,4 +1,4 @@
-/* Aegis Assist — guardian console, live map, alerts & history views. */
+/* Safety & Emergency Assistance System — guardian console, live map, alerts & history views. */
 (function () {
   "use strict";
 
@@ -56,7 +56,7 @@
         "</div>" +
         "<h2 style=\"font-family:var(--font-display);font-size:1.7rem\">Connect with someone you care for</h2>" +
         '<p class="muted" style="max-width:44ch;margin:.6rem auto 1.4rem;font-size:.88rem">' +
-          "Every person account has a short link code (for example <span class='mono'>AEGIS-7K2P</span>). Enter it once and their live safety console appears here." +
+          "Every person account has a short link code (for example <span class='mono'>SAFE-XXXX</span>). Enter it once and their live safety console appears here." +
         "</p>" +
         '<div class="hstack" style="justify-content:center;flex-wrap:wrap">' +
           '<button class="btn btn-primary" type="button" data-action="link-person">' + icon("plus") + " Enter link code</button>" +
@@ -72,7 +72,7 @@
         '<span class="bang">' + icon("alert") + "</span>" +
         '<div class="ab-body"><strong>' + App.alertTypeLabel(a.type) + " from " + esc(A.firstName(p.user.name)) + " · " + timeAgo(a.ts) + "</strong>" +
           "<p>" + esc(a.message) + "</p></div>" +
-        (a.status === "active" && !App.isGuest()
+        (a.status === "active"
           ? '<button class="btn btn-small btn-light" type="button" data-action="ack-alert" data-id="' + esc(a.id) + '">Acknowledge</button>'
           : "") +
         '<button class="btn btn-small btn-ghost" type="button" data-view="alerts">Review</button>' +
@@ -97,7 +97,7 @@
     const phone = p.user.phone;
 
     const head = V().pageHead({
-      eyebrow: App.isGuest() ? "Guest preview · read-only" : "Guardian console",
+      eyebrow: "Guardian console",
       title: "Watching over " + A.firstName(p.user.name),
       sub:
         '<span class="dot" style="color:var(--' + (info.tone || "faint") + ')"></span>' +
@@ -105,7 +105,7 @@
         '<span class="sep">·</span><span>Last GPS <span data-rel="' + esc(loc && loc.ts) + '">' + (loc ? timeAgo(loc.ts) : "pending") + "</span></span>" +
         '<span class="sep">·</span><span>' + esc(loc ? App.sourceLabel(loc.source) : "No location yet") + "</span>",
       actions:
-        '<span class="chip accent">' + (App.isGuest() ? "Guest · read-only" : "Live safety feed") + "</span>" +
+        '<span class="chip accent">Live safety feed</span>' +
         personSelect() +
         '<button class="btn btn-outline" type="button" data-action="request-checkin"' + App.readOnlyAttr() + ">" + icon("bell") + " Request check-in</button>" +
         '<button class="btn btn-primary" type="button" data-action="chat" data-peer="' + esc(p.user.id) + '">' + icon("message") + " Message</button>",
@@ -134,7 +134,7 @@
           '<p class="card-sub">' + (loc ? esc(App.coordText(loc)) + " · " + esc(App.sourceLabel(loc.source)) : "The map activates as soon as location is shared.") + "</p></div>" +
           '<div class="hstack wrap">' +
             '<span class="chip ' + (loc ? "ok" : "plain") + '"><span class="dot' + (loc ? " animate" : "") + '"></span>' + (loc ? "Live" : "Idle") + "</span>" +
-            (loc && loc.source !== "device" ? '<span class="chip info">Simulated</span>' : "") +
+            (loc && loc.source === "device" ? '<span class="chip info">Device GPS</span>' : "") +
             '<button class="chip ' + (state.follow === false ? "plain" : "accent") + '" type="button" data-action="toggle-follow">' + icon("nav") + " Follow</button>" +
           "</div>" +
         "</div>" +
@@ -197,8 +197,7 @@
           '<div class="hstack small muted"><span class="mini-label" style="width:64px">Email</span><span class="truncate">' + esc(p.user.email) + "</span></div>" +
           '<div class="hstack small muted"><span class="mini-label" style="width:64px">Check-in</span><span>Every ' + (state.me.settings.checkinMinutes || 10) + " minutes</span></div>" +
         "</div>" +
-        (App.isGuest() ? '<p class="invite-qr-note" style="margin-top:.8rem">Guest mode is a read-only preview of shared safety data.</p>'
-          : '<button class="btn btn-ghost btn-block" style="margin-top:.8rem" type="button" data-action="unlink" data-person="' + esc(p.user.id) + '">' + icon("x") + " Disconnect this person</button>") +
+        '<button class="btn btn-ghost btn-block" style="margin-top:.8rem" type="button" data-action="unlink" data-person="' + esc(p.user.id) + '">' + icon("x") + " Disconnect this person</button>" +
       "</section>";
 
     return head + (active ? alertBanner(active, p) : "") + stats +
@@ -420,7 +419,7 @@
 
   function viewHtml() {
     if (!state.dash || !state.me) {
-      return '<div class="empty" style="min-height:50vh">' + icon("shield") + "<strong>Opening your safety console…</strong><span>Connecting to Aegis Assist</span></div>";
+      return '<div class="empty" style="min-height:50vh">' + icon("shield") + "<strong>Opening your safety console…</strong><span>Connecting to your account</span></div>";
     }
     if (state.view === "messages") return App.views.messagesView();
     if (App.isPerson()) {

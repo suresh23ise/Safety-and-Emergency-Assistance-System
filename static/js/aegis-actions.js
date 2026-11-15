@@ -1,4 +1,4 @@
-/* Aegis Assist — interactions, modals, SOS, sharing, chat, history. */
+/* Safety & Emergency Assistance System — interactions, modals, SOS, sharing, chat, history. */
 (function () {
   "use strict";
 
@@ -101,7 +101,6 @@
       const data = await A.api("/api/dashboard");
       state.dash = data;
       state.me = Object.assign({}, data.me || state.me || {});
-      if (data.readOnly && state.me) state.me.role = "guest";
       if (data.people && data.people.length) {
         if (!data.people.some(function (p) { return p.user.id === state.selected; })) {
           state.selected = data.people[0].user.id;
@@ -217,10 +216,6 @@
   /* ------------------------------------------------------------- navigation */
   function go(view) {
     if (!view) return;
-    if (view === "messages" && App.isGuest()) {
-      A.toast("Guest mode is read-only. Sign in to message.", "warn");
-      return;
-    }
     closePopover();
     state.view = view;
     state.chat.focus = false;
@@ -253,28 +248,24 @@
       el.innerHTML =
         '<div class="menu-user">' + A.avatar(me, 40) +
           "<div><strong>" + esc(me.name || "You") + "</strong><small>" + esc(me.email || "") + "</small></div>" +
-          '<span class="chip plain" style="margin-left:auto">' + esc(me.role === "person" ? "Person" : me.role === "guest" ? "Guest" : "Guardian") + "</span>" +
+          '<span class="chip plain" style="margin-left:auto">' + esc(me.role === "person" ? "Person" : "Guardian") + "</span>" +
         "</div>" +
         '<div class="menu-sep"></div>' +
-        (App.isGuest()
-          ? '<p class="menu-note">Guest mode is a read-only preview. Sign in with an account to share, message or respond.</p>'
-          : '<button class="menu-item" type="button" data-action="edit-profile">' + icon("user") + " Edit profile</button>") +
+        '<button class="menu-item" type="button" data-action="edit-profile">' + icon("user") + " Edit profile</button>" +
         '<button class="menu-item" type="button" data-open-themes>' + icon("palette") + " Appearance &amp; accessibility</button>" +
         '<button class="menu-item" type="button" data-action="toggle-notifications">' + icon("bell") + " Desktop notifications</button>" +
         (App.isPerson()
           ? '<button class="menu-item" type="button" data-action="invite">' + icon("users") + " Invite a guardian</button>"
-          : App.isGuest()
-            ? ""
-            : '<button class="menu-item" type="button" data-action="link-person">' + icon("plus") + " Link another person</button>") +
+          : '<button class="menu-item" type="button" data-action="link-person">' + icon("plus") + " Link another person</button>") +
         '<div class="menu-sep"></div>' +
-        '<button class="menu-item danger" type="button" data-action="logout">' + icon("logout") + " " + (App.isGuest() ? "Exit guest mode" : "Sign out") + "</button>";
+        '<button class="menu-item danger" type="button" data-action="logout">' + icon("logout") + " Sign out</button>";
       return el;
     }
 
     const items = notificationItems();
     el.innerHTML =
       '<div class="popover-head"><strong>Notifications</strong>' +
-        (App.isGuardian() && !App.isGuest()
+        (App.isGuardian()
           ? '<button class="link" type="button" data-action="notify-permission">Enable desktop</button>'
           : '<button class="link" type="button" data-view="alerts">View all</button>') +
       "</div>" +
@@ -344,10 +335,6 @@
 
   /* ------------------------------------------------------------- status */
   async function postStatus(value) {
-    if (App.isGuest()) {
-      A.toast("Guest mode is read-only. Sign in to post a status.", "warn");
-      return;
-    }
     const noteEl = $("statusNote");
     const note = (noteEl && noteEl.value.trim()) || "";
     try {
@@ -378,10 +365,6 @@
   }
 
   async function sendAlert(type, message) {
-    if (App.isGuest()) {
-      A.toast("Guest mode is read-only.", "warn");
-      return null;
-    }
     const loc = alertLocation();
     try {
       const data = await A.api("/api/alerts", {
@@ -408,10 +391,6 @@
   }
 
   function sosConfirm() {
-    if (App.isGuest()) {
-      A.toast("Guest mode cannot raise an SOS.", "warn");
-      return;
-    }
     let seconds = 5;
     let done = false;
     const sheet = openSheet(
@@ -463,10 +442,6 @@
   }
 
   function emergencyDialog() {
-    if (App.isGuest()) {
-      A.toast("Guest mode cannot raise an alert.", "warn");
-      return;
-    }
     const loc = alertLocation();
     const sheet = openSheet(
       '<div class="sheet-head"><div><p class="eyebrow">Emergency</p><h2>Send an emergency alert</h2>' +
@@ -523,11 +498,6 @@
   }
 
   /* ------------------------------------------------------------- sharing */
-  const DEMO_ROUTE = [
-    [12.9748, 77.5920], [12.9762, 77.5925], [12.9774, 77.5938], [12.9782, 77.5958],
-    [12.9776, 77.5975], [12.9764, 77.5983], [12.9750, 77.5978], [12.9740, 77.5962],
-  ];
-
   function setSharingUi() {
     if (state.dash && state.dash.location) {
       if (!state.ownTrail.length || state.ownTrail[state.ownTrail.length - 1].ts !== state.dash.location.ts) {
@@ -539,7 +509,7 @@
   }
 
   async function pushLocation(loc, source) {
-    if (App.isGuest() || !App.isPerson()) return;
+    if (!App.isPerson()) return;
     try {
       await A.api("/api/locations", {
         method: "POST",
@@ -567,32 +537,9 @@
     }
   }
 
-  function startDemoGps(options) {
-    const opts = options || {};
-    stopSharing(true);
-    state.share.on = true;
-    state.share.demoStep = Math.floor(Math.random() * 8);
-    const loc = state.dash && state.dash.location;
-    let current = loc ? { lat: loc.lat, lng: loc.lng } : { lat: DEMO_ROUTE[0][0], lng: DEMO_ROUTE[0][1] };
-
-    function step() {
-      const base = loc ? { lat: loc.lat, lng: loc.lng } : { lat: DEMO_ROUTE[0][0], lng: DEMO_ROUTE[0][1] };
-      const nxt = DEMO_ROUTE[state.share.demoStep % DEMO_ROUTE.length];
-      state.share.demoStep += 1;
-      const target = loc ? { lat: base.lat + (nxt[0] - DEMO_ROUTE[0][0]) * 0.12, lng: base.lng + (nxt[1] - DEMO_ROUTE[0][1]) * 0.12 } : { lat: nxt[0], lng: nxt[1] };
-      current = { lat: Number(target.lat.toFixed(6)), lng: Number(target.lng.toFixed(6)) };
-      pushLocation({ lat: current.lat, lng: current.lng, accuracy: 8 + (state.share.demoStep % 5), speed: 1.2, heading: 0 }, "simulated");
-    }
-
-    step();
-    state.share.timer = setInterval(step, Math.max(4, Number(App.settings().shareSeconds) || 5) * 1000);
-    if (!opts.quiet) A.toast("Demo GPS is now sharing your position with guardians.", "ok");
-    App.render();
-  }
-
   function startDeviceGps() {
     if (!navigator.geolocation) {
-      A.toast("This browser has no GPS support. Demo GPS is available.", "warn");
+      A.toast("This browser does not support location sharing.", "warn");
       return;
     }
     stopSharing(true);
@@ -613,7 +560,7 @@
         );
       },
       function (err) {
-        A.toast("GPS permission was not granted. You can use demo GPS instead.", "warn", 5200);
+        A.toast("Location permission was not granted. Allow location access in your browser to share live position.", "warn", 5200);
         stopSharing(true);
         App.render();
       },
@@ -657,7 +604,7 @@
 
   function tickCheckin() {
     updateCountdown();
-    if (!App.isPerson() || App.isGuest()) return;
+    if (!App.isPerson()) return;
     if (!App.settings().checkinEnabled) return;
     if (state.checkin.busy || !state.checkin.next) return;
     if (Date.now() < state.checkin.next) return;
@@ -678,10 +625,6 @@
 
   /* ------------------------------------------------------------- guardian actions */
   async function requestCheckin() {
-    if (App.isGuest()) {
-      A.toast("Guest mode is read-only.", "warn");
-      return;
-    }
     const personId = App.activePersonId();
     if (!personId) return;
     try {
@@ -711,23 +654,19 @@
   }
 
   async function linkPerson() {
-    if (App.isGuest()) {
-      A.toast("Guest mode is read-only.", "warn");
-      return;
-    }
     const sheet = openSheet(
       '<div class="sheet-head"><div><p class="eyebrow">Care circle</p><h2>Link a person</h2>' +
         "<p>Ask the person for their guardian link code and enter it below.</p></div>" +
         '<button class="close-btn" type="button" data-close-sheet aria-label="Close">' + icon("x") + "</button></div>" +
       '<div class="vstack">' +
         '<div class="field"><label for="linkCodeInput">Guardian link code</label>' +
-          '<input class="input" id="linkCodeInput" placeholder="AEGIS-7K2P" maxlength="14" style="letter-spacing:.12em;font-family:var(--font-mono);text-transform:uppercase" /></div>' +
+          '<input class="input" id="linkCodeInput" placeholder="SAFE-XXXX" maxlength="12" style="letter-spacing:.12em;font-family:var(--font-mono);text-transform:uppercase" /></div>' +
         '<div class="form-error" id="linkError" hidden>' + icon("alert") + "<span></span></div>" +
         '<div class="hstack wrap" style="margin-top:.3rem">' +
           '<button class="btn btn-primary" type="button" id="linkSubmit">' + icon("plus") + " Link person</button>" +
           '<button class="btn btn-ghost" type="button" data-close-sheet>Cancel</button>' +
         "</div>" +
-        '<p class="fineprint" style="margin-top:.4rem;text-align:left">Demo code: <span class="mono">AEGIS-7K2P</span></p>' +
+        '<p class="fineprint" style="margin-top:.4rem;text-align:left">The person you are linking can find this code in their account menu.</p>' +
       "</div>"
     );
     const input = document.getElementById("linkCodeInput");
@@ -759,10 +698,6 @@
   }
 
   function inviteDialog() {
-    if (App.isGuest()) {
-      A.toast("Guest mode is read-only.", "warn");
-      return;
-    }
     const me = state.me || {};
     const code = me.linkCode || "—";
     const sheet = openSheet(
@@ -800,10 +735,6 @@
   }
 
   function editProfile() {
-    if (App.isGuest()) {
-      A.toast("Guest mode is read-only.", "warn");
-      return;
-    }
     const me = state.me || {};
     const sheet = openSheet(
       '<div class="sheet-head"><div><p class="eyebrow">Account</p><h2>Edit profile</h2>' +
@@ -846,10 +777,6 @@
 
   /* ------------------------------------------------------------- chat */
   async function sendMessage(text) {
-    if (App.isGuest()) {
-      A.toast("Guest mode is read-only.", "warn");
-      return;
-    }
     const peerId = state.chat.peerId;
     if (!peerId) return;
     const body = String(text || "").trim();
@@ -872,7 +799,6 @@
 
   /* ------------------------------------------------------------- appearance sync */
   async function saveSettings(patch) {
-    if (App.isGuest()) return;
     try {
       const data = await A.api("/api/me", { method: "PATCH", body: { settings: patch } });
       refreshMe(data.user);
@@ -898,7 +824,7 @@
     state.notifAsked = true;
     if (result === "granted") {
       A.toast("Desktop alerts enabled for this browser.", "ok");
-      A.browserNotify("Aegis Assist", "Desktop alerts are on. You will be notified about emergencies.", "aegis-ok");
+      A.browserNotify("Safety & Emergency Assistance System", "Desktop alerts are on. You will be notified about emergencies.", "safety-ok");
     } else if (result === "unsupported") {
       A.toast("This browser does not support desktop notifications.", "warn");
     } else {
@@ -910,7 +836,7 @@
     if (!alert) return;
     const name = alert.personName || (App.activePersonUser() ? App.activePersonUser().name : "Someone");
     const title = App.alertTypeLabel(alert.type) + " from " + name;
-    A.browserNotify(title, alert.message || "Open Aegis Assist now.", "alert-" + alert.id);
+    A.browserNotify(title, alert.message || "Open the safety console now.", "alert-" + alert.id);
     if (App.settings().voice || alert.type === "sos") {
       speak(title + ". " + (alert.message || ""));
     }
@@ -967,17 +893,17 @@
     }
     const name = (data.person && data.person.name) || "person";
     if (state.history.tab === "locations") {
-      A.downloadCsv("aegis-locations-" + name.replace(/\W+/g, "-").toLowerCase() + ".csv",
+      A.downloadCsv("safety-locations-" + name.replace(/\W+/g, "-").toLowerCase() + ".csv",
         (data.locations || []).map(function (p) {
           return { time: p.ts, latitude: p.lat, longitude: p.lng, accuracy_m: p.accuracy, speed_mps: p.speed, source: p.source };
         }));
     } else if (state.history.tab === "status") {
-      A.downloadCsv("aegis-checkins-" + name.replace(/\W+/g, "-").toLowerCase() + ".csv",
+      A.downloadCsv("safety-checkins-" + name.replace(/\W+/g, "-").toLowerCase() + ".csv",
         (data.statuses || []).map(function (s) {
           return { time: s.ts, state: s.state, note: s.note, source: s.source };
         }));
     } else {
-      A.downloadCsv("aegis-alerts-" + name.replace(/\W+/g, "-").toLowerCase() + ".csv",
+      A.downloadCsv("safety-alerts-" + name.replace(/\W+/g, "-").toLowerCase() + ".csv",
         (data.alerts || []).map(function (a) {
           return { time: a.ts, type: a.type, severity: a.severity, status: a.status, message: a.message, latitude: a.lat, longitude: a.lng, acknowledged_by: a.ackedBy, resolved_at: a.resolvedAt };
         }));
@@ -1061,18 +987,6 @@
     }
     if (action === "emergency") {
       emergencyDialog();
-      return;
-    }
-    if (action === "demo-gps") {
-      if (state.share.timer) {
-        stopSharing();
-        App.render();
-      } else if (state.share.watchId != null) {
-        stopSharing();
-        startDemoGps();
-      } else {
-        startDemoGps();
-      }
       return;
     }
     if (action === "recenter") {
@@ -1238,7 +1152,7 @@
     const el = event.target;
     if (!el) return;
     if (el.id === "shareToggle") {
-      if (el.checked) startDemoGps({ quiet: false });
+      if (el.checked) startDeviceGps();
       else {
         stopSharing();
         App.render();
@@ -1278,7 +1192,7 @@
   let holdDuration = 2000;
 
   function beginHold(button) {
-    if (App.isGuest() || state.sos.holding) return;
+    if (state.sos.holding) return;
     const settings = App.settings();
     holdDuration = Math.max(600, Number(settings.sosHoldMs) || 2000);
     state.sos.holding = true;
@@ -1357,7 +1271,6 @@
     sendAlert: sendAlert,
     applyAlertToDash: applyAlertToDash,
     updateAlert: updateAlert,
-    startDemoGps: startDemoGps,
     startDeviceGps: startDeviceGps,
     stopSharing: stopSharing,
     pushLocation: pushLocation,

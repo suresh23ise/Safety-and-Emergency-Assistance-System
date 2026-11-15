@@ -17,7 +17,7 @@
     try {
       res = await fetch(path, init);
     } catch (err) {
-      const e = new Error("Cannot reach the Aegis server. Check that it is running.");
+      const e = new Error("Cannot reach the server. Check that it is running.");
       e.status = 0;
       throw e;
     }

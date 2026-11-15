@@ -1,4 +1,4 @@
-"""SQLite data layer for Aegis Assist."""
+"""SQLite data layer for the Safety & Emergency Assistance System."""
 from __future__ import annotations
 
 import sqlite3
@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
-DB_PATH = DATA_DIR / "aegis.db"
+DB_PATH = DATA_DIR / "safety.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
     name          TEXT NOT NULL,
     email         TEXT NOT NULL UNIQUE,
     phone         TEXT NOT NULL DEFAULT '',
-    role          TEXT NOT NULL CHECK (role IN ('person', 'guardian', 'guest')),
+    role          TEXT NOT NULL CHECK (role IN ('person', 'guardian')),
     password_hash TEXT,
     password_salt TEXT,
     provider      TEXT NOT NULL DEFAULT 'password',

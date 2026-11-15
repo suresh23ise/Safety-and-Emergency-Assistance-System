@@ -1,6 +1,6 @@
-"""Aegis Assist — FastAPI backend.
+"""Safety & Emergency Assistance System — FastAPI backend.
 
-Realtime safety & emergency assistance platform for visually impaired users
+Realtime safety and emergency assistance platform for visually impaired users
 and their guardians. REST for state, WebSockets for live updates.
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import db, seed
+from . import db
 from .security import (
     hash_password,
     new_id,
@@ -33,7 +33,7 @@ from .security import (
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
-COOKIE = "aegis_session"
+COOKIE = "safety_session"
 THEMES = {"sunset", "cyber", "aurora", "ocean", "midnight", "magma", "forest", "titanium"}
 
 
@@ -84,18 +84,13 @@ class RegisterIn(BaseModel):
     phone: str = ""
 
 
-class DemoIn(BaseModel):
-    role: Literal["person", "guardian", "guest"] = "person"
-    provider: str = "google"
-
-
 class LocationIn(BaseModel):
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
     accuracy: float = Field(default=0, ge=0, le=100000)
     speed: float | None = None
     heading: float | None = None
-    source: Literal["device", "simulated", "demo"] = "device"
+    source: Literal["device"] = "device"
 
 
 class StatusIn(BaseModel):
@@ -268,11 +263,6 @@ def is_linked(person_id: str, guardian_id: str) -> bool:
     )
 
 
-def require_guest_writable(user: dict) -> None:
-    if user["role"] == "guest":
-        raise HTTPException(status_code=403, detail="Guest mode is read-only. Sign in to make changes.")
-
-
 def can_view_person(user: dict, person_id: str) -> bool:
     person = get_user(person_id)
     if not person or person["role"] != "person":
@@ -294,7 +284,7 @@ def can_message(user: dict, peer_id: str) -> bool:
         return False
     if user["role"] == "person" and peer["role"] == "guardian":
         return is_linked(user["id"], peer_id)
-    if user["role"] in ("guardian", "guest") and peer["role"] == "person":
+    if user["role"] == "guardian" and peer["role"] == "person":
         return is_linked(peer_id, user["id"])
     return False
 
@@ -422,15 +412,10 @@ def rate_limit(request: Request, limit: int = 12, window: int = 300) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init()
-    seed.ensure_demo()
-    task = asyncio.create_task(simulation_loop())
-    try:
-        yield
-    finally:
-        task.cancel()
+    yield
 
 
-app = FastAPI(title="Aegis Assist", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Safety & Emergency Assistance System", version="1.0.0", lifespan=lifespan)
 
 
 @app.middleware("http")
@@ -490,31 +475,11 @@ def login(body: LoginIn, request: Request, response: Response):
     rate_limit(request)
     email = normalize_email(body.email)
     user = db.fetch_one("SELECT * FROM users WHERE email = ?", (email,))
-    if not user or user["role"] == "guest" or not verify_password(body.password, user["password_hash"], user["password_salt"]):
+    if not user or not verify_password(body.password, user["password_hash"], user["password_salt"]):
         raise HTTPException(status_code=401, detail="Incorrect email or password.")
     db.execute("UPDATE users SET last_seen = ? WHERE id = ?", (db.now_iso(), user["id"]))
     set_session(response, user)
     return {"user": me_payload(user)}
-
-
-@app.post("/api/auth/demo")
-def demo_login(body: DemoIn, response: Response):
-    """One-click demo identity. Used by the Google / Apple / Guest buttons.
-
-    A production deployment would exchange a real OAuth code here instead.
-    """
-    seed.ensure_demo()
-    mapping = {
-        "person": "ananya@aegis.demo",
-        "guardian": "ramesh@aegis.demo",
-        "guest": "guest@aegis.demo",
-    }
-    user = db.fetch_one("SELECT * FROM users WHERE email = ?", (mapping[body.role],))
-    if not user:
-        raise HTTPException(status_code=503, detail="Demo data is not ready yet. Try again in a moment.")
-    db.execute("UPDATE users SET last_seen = ? WHERE id = ?", (db.now_iso(), user["id"]))
-    set_session(response, user)
-    return {"user": me_payload(user), "provider": body.provider, "demo": True}
 
 
 @app.post("/api/auth/logout")
@@ -527,13 +492,11 @@ def logout(response: Response):
 def api_me(user: dict = Depends(current_user)):
     db.execute("UPDATE users SET last_seen = ? WHERE id = ?", (db.now_iso(), user["id"]))
     payload = me_payload(user)
-    payload["readOnly"] = user["role"] == "guest"
     return payload
 
 
 @app.patch("/api/me")
 def update_me(body: ProfileIn, user: dict = Depends(current_user)):
-    require_guest_writable(user)
     if body.name is not None:
         name = body.name.strip()
         if len(name) < 2:
@@ -576,7 +539,6 @@ def update_me(body: ProfileIn, user: dict = Depends(current_user)):
 
 @app.post("/api/me/rotate-code")
 def rotate_code(user: dict = Depends(current_user)):
-    require_guest_writable(user)
     if user["role"] != "person":
         raise HTTPException(status_code=403, detail="Only a person account has a guardian link code.")
     for _ in range(12):
@@ -591,7 +553,7 @@ def rotate_code(user: dict = Depends(current_user)):
 @app.get("/api/dashboard")
 async def dashboard(user: dict = Depends(current_user)):
     db.execute("UPDATE users SET last_seen = ? WHERE id = ?", (db.now_iso(), user["id"]))
-    base = {"me": me_payload(user), "serverTime": db.now_iso(), "readOnly": user["role"] == "guest"}
+    base = {"me": me_payload(user), "serverTime": db.now_iso()}
 
     if user["role"] == "person":
         guardians = []
@@ -648,7 +610,6 @@ async def dashboard(user: dict = Depends(current_user)):
 # --------------------------------------------------------------------------- location
 @app.post("/api/locations")
 async def post_location(body: LocationIn, user: dict = Depends(current_user)):
-    require_guest_writable(user)
     if user["role"] != "person":
         raise HTTPException(status_code=403, detail="Only a person account can share live location.")
     db.execute(
@@ -693,7 +654,6 @@ def get_locations(person_id: str, limit: int = 500, user: dict = Depends(current
 # --------------------------------------------------------------------------- status
 @app.post("/api/status")
 async def post_status(body: StatusIn, user: dict = Depends(current_user)):
-    require_guest_writable(user)
     if user["role"] != "person":
         raise HTTPException(status_code=403, detail="Only a person account can post a safety status.")
     note = body.note.strip()[:300]
@@ -741,7 +701,6 @@ def get_statuses(person_id: str, limit: int = 100, user: dict = Depends(current_
 # --------------------------------------------------------------------------- alerts
 @app.post("/api/alerts")
 async def create_alert(body: AlertIn, user: dict = Depends(current_user)):
-    require_guest_writable(user)
     if user["role"] != "person":
         raise HTTPException(status_code=403, detail="Only a person account can raise an alert.")
     loc = latest_location(user["id"])
@@ -788,7 +747,6 @@ def get_alerts(person_id: str, limit: int = 100, active: bool = False, user: dic
 
 @app.post("/api/alerts/{alert_id}/ack")
 async def ack_alert(alert_id: str, user: dict = Depends(current_user)):
-    require_guest_writable(user)
     alert = db.fetch_one("SELECT * FROM alerts WHERE id = ?", (alert_id,))
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found.")
@@ -814,7 +772,6 @@ async def ack_alert(alert_id: str, user: dict = Depends(current_user)):
 
 @app.post("/api/alerts/{alert_id}/resolve")
 async def resolve_alert(alert_id: str, user: dict = Depends(current_user)):
-    require_guest_writable(user)
     alert = db.fetch_one("SELECT * FROM alerts WHERE id = ?", (alert_id,))
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found.")
@@ -840,7 +797,6 @@ async def resolve_alert(alert_id: str, user: dict = Depends(current_user)):
 # --------------------------------------------------------------------------- check-ins
 @app.post("/api/checkin-requests")
 async def request_checkin(body: CheckinIn, user: dict = Depends(current_user)):
-    require_guest_writable(user)
     if user["role"] != "guardian" or not is_linked(body.personId, user["id"]):
         raise HTTPException(status_code=403, detail="Only a linked guardian can request a check-in.")
     existing = db.fetch_one(
@@ -892,7 +848,6 @@ def get_messages(peer_id: str, limit: int = 200, user: dict = Depends(current_us
 
 @app.post("/api/messages")
 async def send_message(body: MessageIn, user: dict = Depends(current_user)):
-    require_guest_writable(user)
     if not can_message(user, body.toId):
         raise HTTPException(status_code=403, detail="You are not connected to this person.")
     text = body.text.strip()[:1000]
@@ -925,7 +880,6 @@ def list_links(user: dict = Depends(current_user)):
 
 @app.post("/api/links")
 def add_link(body: LinkIn, user: dict = Depends(current_user)):
-    require_guest_writable(user)
     if user["role"] != "guardian":
         raise HTTPException(status_code=403, detail="Only a guardian can link to a person.")
     code = body.code.strip().upper()
@@ -940,7 +894,6 @@ def add_link(body: LinkIn, user: dict = Depends(current_user)):
 
 @app.delete("/api/links/{person_id}")
 def remove_link(person_id: str, user: dict = Depends(current_user)):
-    require_guest_writable(user)
     if user["role"] != "guardian":
         raise HTTPException(status_code=403, detail="Only a guardian can remove a link.")
     db.execute("DELETE FROM links WHERE person_id = ? AND guardian_id = ?", (person_id, user["id"]))
@@ -971,7 +924,7 @@ def history(person_id: str, days: int = 7, user: dict = Depends(current_user)):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "service": "aegis-assist", "time": db.now_iso()}
+    return {"ok": True, "service": "safety-emergency-assistance", "time": db.now_iso()}
 
 
 # --------------------------------------------------------------------------- websocket
@@ -1009,81 +962,3 @@ async def websocket_endpoint(ws: WebSocket, token: str | None = None):
         pass
     finally:
         manager.disconnect(user["id"], ws)
-
-
-# --------------------------------------------------------------------------- demo simulation
-async def simulation_loop() -> None:
-    """Keeps the seeded demo person moving so the live map is meaningful.
-
-    Real device updates always take precedence: simulation pauses for 30s
-    whenever a genuine `device` location arrives.
-    """
-    await asyncio.sleep(2)
-    step = 0
-    last_auto_status = time.time()
-    while True:
-        try:
-            pid = seed.demo_person_id()
-            if pid:
-                last = db.fetch_one(
-                    "SELECT lat, lng, source, ts FROM locations WHERE user_id = ? ORDER BY ts DESC, id DESC LIMIT 1",
-                    (pid,),
-                )
-                stale = True
-                if last and last["source"] == "device":
-                    try:
-                        ts = datetime.fromisoformat(last["ts"].replace("Z", "+00:00"))
-                        stale = (utcnow() - ts).total_seconds() > 30
-                    except Exception:
-                        stale = True
-                if stale:
-                    step += 1
-                    lat, lng = seed.interpolate(step, 80)
-                    ts = db.now_iso()
-                    db.execute(
-                        "INSERT INTO locations (user_id, lat, lng, accuracy, speed, heading, source, ts) "
-                        "VALUES (?, ?, ?, ?, ?, ?, 'simulated', ?)",
-                        (pid, lat, lng, 6 + (step % 5), 1.3, 0.0, ts),
-                    )
-                    db.execute(
-                        "DELETE FROM locations WHERE user_id = ? AND id NOT IN "
-                        "(SELECT id FROM locations WHERE user_id = ? ORDER BY id DESC LIMIT 2000)",
-                        (pid, pid),
-                    )
-                    await manager.send_many(
-                        watcher_ids(pid) + [pid],
-                        {
-                            "type": "location",
-                            "personId": pid,
-                            "location": {"lat": lat, "lng": lng, "accuracy": 6 + (step % 5), "speed": 1.3, "heading": 0.0, "source": "simulated", "ts": ts},
-                        },
-                    )
-                # A gentle periodic check-in keeps the timeline alive.
-                if time.time() - last_auto_status > 480:
-                    last_status = latest_status(pid)
-                    recent = False
-                    if last_status:
-                        try:
-                            ts = datetime.fromisoformat(last_status["ts"].replace("Z", "+00:00"))
-                            recent = (utcnow() - ts).total_seconds() < 300
-                        except Exception:
-                            recent = False
-                    if not recent:
-                        ts = db.now_iso()
-                        db.execute(
-                            "INSERT INTO status_updates (user_id, state, note, source, ts) VALUES (?, 'checkin', ?, 'auto', ?)",
-                            (pid, "Periodic safety check-in", ts),
-                        )
-                        newest = db.fetch_one(
-                            "SELECT * FROM status_updates WHERE user_id = ? ORDER BY id DESC LIMIT 1", (pid,)
-                        )
-                        await manager.send_many(
-                            watcher_ids(pid) + [pid],
-                            {"type": "status", "personId": pid, "status": serialize_status(newest)},  # type: ignore[arg-type]
-                        )
-                    last_auto_status = time.time()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            pass
-        await asyncio.sleep(6)

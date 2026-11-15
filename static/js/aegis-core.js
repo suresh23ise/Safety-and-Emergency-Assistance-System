@@ -1,4 +1,4 @@
-/* Aegis Assist — shared state & small helpers (classic script, exposes AegisApp). */
+/* Safety & Emergency Assistance System — shared state & small helpers (classic script, exposes AegisApp). */
 (function () {
   "use strict";
 
@@ -20,7 +20,7 @@
     alertsFilter: "all",
     chat: { peerId: null, thread: null, loading: false, draft: "", focus: false },
     sos: { holding: false, timer: null, complete: false, remaining: 5, countdown: null, esc: null },
-    share: { on: false, watchId: null, timer: null, demoStep: 0, lastPost: 0, started: false },
+    share: { on: false, watchId: null, timer: null, lastPost: 0, started: false },
     checkin: { next: 0, tick: null, timer: null, busy: false },
     popover: null,
     seenAlerts: new Set(),
@@ -35,10 +35,9 @@
 
   const $ = (id) => document.getElementById(id);
 
-  const isGuest = () => !!(state.me && state.me.role === "guest");
   const isPerson = () => !!(state.me && state.me.role === "person");
-  const isGuardian = () => !!(state.me && (state.me.role === "guardian" || state.me.role === "guest"));
-  const readOnlyAttr = () => (isGuest() ? "disabled" : "");
+  const isGuardian = () => !!(state.me && state.me.role === "guardian");
+  const readOnlyAttr = () => "";
   const settings = () => (state.me && state.me.settings) || {};
 
   function selectedPerson() {
@@ -87,8 +86,6 @@
     return (
       {
         device: "Device GPS",
-        simulated: "Simulated feed",
-        demo: "Demo GPS",
         auto: "Automatic",
         "auto-checkin": "Auto check-in",
         manual: "Manual",
@@ -126,14 +123,6 @@
         { id: "home", label: "Home", icon: "shield" },
         { id: "history", label: "My history", icon: "history" },
         { id: "messages", label: "Messages", icon: "message" },
-      ];
-    }
-    if (isGuest()) {
-      return [
-        { id: "home", label: "Overview", icon: "shield" },
-        { id: "map", label: "Live map", icon: "pin" },
-        { id: "alerts", label: "Alerts", icon: "alert" },
-        { id: "history", label: "History", icon: "history" },
       ];
     }
     return [
@@ -185,7 +174,6 @@
   window.AegisApp = {
     state: state,
     $: $,
-    isGuest: isGuest,
     isPerson: isPerson,
     isGuardian: isGuardian,
     readOnlyAttr: readOnlyAttr,

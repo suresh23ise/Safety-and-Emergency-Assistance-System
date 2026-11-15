@@ -1,4 +1,4 @@
-/* Aegis Assist — shared view primitives + person console + messaging. */
+/* Safety & Emergency Assistance System — shared view primitives + person console + messaging. */
 (function () {
   "use strict";
 
@@ -65,7 +65,7 @@
     const o = opts || {};
     const resolved = a.status === "resolved";
     const acked = a.status === "acknowledged";
-    const canAct = !resolved && !App.isGuest();
+    const canAct = !resolved;
     const canAck = canAct && state.me && state.me.role === "guardian";
     const targetPhone = o.phone || a.personPhone;
     const call = App.telHref(targetPhone);
@@ -193,7 +193,7 @@
       title: App.greeting() + ", " + A.firstName(me.name),
       sub:
         '<span class="dot" style="color:var(--' + (sharing ? "ok" : "warn") + ')"></span>' +
-        "<span>" + (sharing ? (state.share.timer ? "Demo GPS is sharing" : "Live location is being shared") : "Location sharing is paused") + "</span>" +
+        "<span>" + (sharing ? "Live location is being shared" : "Location sharing is paused") + "</span>" +
         '<span class="sep">·</span><span>Updated <span data-rel="' + esc(loc && loc.ts) + '">' + (loc ? timeAgo(loc.ts) : "—") + "</span></span>",
       actions:
         statusPill(st && st.state) +
@@ -270,7 +270,7 @@
     const mapCard =
       '<section class="card map-card">' +
         '<div class="card-head">' +
-          "<div><p class=\"eyebrow\">Live location</p><h2>" + (sharing ? (state.share.timer ? "Demo GPS active" : "Sharing with guardians") : "Sharing is paused") + "</h2></div>" +
+          "<div><p class=\"eyebrow\">Live location</p><h2>" + (sharing ? "Sharing with guardians" : "Sharing is paused") + "</h2></div>" +
           '<label class="switch" title="Share live location"><input type="checkbox" id="shareToggle" ' + (sharing ? "checked" : "") + '><span class="track"></span></label>' +
         "</div>" +
         mapBox("personMap", "map", loc) +
@@ -281,8 +281,7 @@
           '<button class="btn btn-small btn-outline" type="button" data-action="recenter">' + icon("nav") + " Recenter</button>" +
         "</div>" +
         '<div class="share-note">' + icon(sharing ? "wifi" : "lock") +
-          "<span>" + (sharing ? "Guardians can watch this map live. " : "Guardians see your last known location. ") +
-          '<button class="link" type="button" data-action="demo-gps">' + (state.share.timer ? "Stop demo GPS" : "Use demo GPS") + "</button></span>" +
+          "<span>" + (sharing ? "Guardians can watch this map live using your device GPS." : "Guardians see your last known location. Turn on sharing to update it live.") + "</span>" +
         "</div>" +
       "</section>";
 
@@ -381,7 +380,6 @@
             "</button>"
           );
         }).join("") +
-        (App.isGuest() ? '<p class="chat-side-note">Guest preview is read-only.</p>' : "") +
       "</aside>";
 
     let threadHtml = "";
@@ -408,7 +406,7 @@
       }).join("") + "</div>";
     }
 
-    const composer = App.isGuest() ? "" :
+    const composer =
       '<form class="chat-composer" id="chatForm">' +
         '<textarea id="chatInput" rows="1" maxlength="1000" placeholder="Write a message to ' + esc(A.firstName(peer.name)) + '…" aria-label="Message"></textarea>' +
         '<button class="btn btn-primary send-btn" type="submit" aria-label="Send message">' + icon("send") + "</button>" +
