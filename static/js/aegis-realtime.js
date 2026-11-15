@@ -305,12 +305,36 @@
   }
 
   /* ------------------------------------------------------------- boot */
+  let bootWatchdog = null;
+
+  function showBootError(message) {
+    const root = document.getElementById("appRoot");
+    if (!root) return;
+    root.innerHTML =
+      '<div class="empty" style="min-height:50vh">' +
+        A.icon("alert") +
+        "<strong>Cannot reach the safety server</strong>" +
+        "<span>" + A.escapeHtml(message) + "</span>" +
+        '<button class="btn btn-primary" type="button" id="bootRetry" style="margin-top:1rem">Try again</button>' +
+      "</div>";
+    const retry = document.getElementById("bootRetry");
+    if (retry) retry.addEventListener("click", function () { window.location.reload(); });
+  }
+
   async function boot() {
+    bootWatchdog = setTimeout(function () {
+      if (!state.booted) showBootError("The server is taking longer than expected. Check that it is running, then try again.");
+    }, 12000);
+
     let me;
     try {
       me = await A.api("/api/me");
     } catch (err) {
-      window.location.href = err.status === 401 ? "/?expired=1" : "/?expired=1";
+      if (err.status === 401) {
+        window.location.href = "/?expired=1";
+        return;
+      }
+      showBootError("The server did not respond. Make sure it is running, then try again.");
       return;
     }
 
@@ -329,10 +353,17 @@
       }
     }
 
-    const dash = await App.loadDashboard();
-    if (!dash) return;
+    const dash = await App.loadDashboard(true);
+    if (!dash) {
+      showBootError("Your console could not be loaded. Check your connection, then try again.");
+      return;
+    }
     state.me = dash.me || me;
     state.booted = true;
+    if (bootWatchdog) {
+      clearTimeout(bootWatchdog);
+      bootWatchdog = null;
+    }
 
     if (App.isPerson()) {
       state.view = "home";
