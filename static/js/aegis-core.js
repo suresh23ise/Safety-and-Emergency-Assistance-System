@@ -35,9 +35,10 @@
 
   const $ = (id) => document.getElementById(id);
 
+  const isGuest = () => !!(state.me && state.me.role === "guest");
   const isPerson = () => !!(state.me && state.me.role === "person");
   const isGuardian = () => !!(state.me && state.me.role === "guardian");
-  const readOnlyAttr = () => "";
+  const readOnlyAttr = () => (isGuest() ? "disabled" : "");
   const settings = () => (state.me && state.me.settings) || {};
 
   function selectedPerson() {
@@ -125,6 +126,9 @@
         { id: "messages", label: "Messages", icon: "message" },
       ];
     }
+    if (isGuest()) {
+      return [{ id: "home", label: "Guest home", icon: "shield" }];
+    }
     return [
       { id: "home", label: "Overview", icon: "shield" },
       { id: "map", label: "Live map", icon: "pin" },
@@ -174,6 +178,7 @@
   window.AegisApp = {
     state: state,
     $: $,
+    isGuest: isGuest,
     isPerson: isPerson,
     isGuardian: isGuardian,
     readOnlyAttr: readOnlyAttr,
