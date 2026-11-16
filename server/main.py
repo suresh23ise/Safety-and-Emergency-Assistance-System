@@ -42,6 +42,7 @@ STATIC = ROOT / "static"
 COOKIE = "safety_session"
 THEMES = {"sunset", "cyber", "aurora", "ocean", "midnight", "magma", "forest", "titanium"}
 OAUTH_STATE_COOKIE = "oauth_state"
+FIREBASE_PROJECT_ID = "final-year-project-59262"
 GUEST_ID = "usr_guest"
 GUEST_USER = {
     "id": GUEST_ID,
@@ -136,6 +137,11 @@ class RegisterIn(BaseModel):
     phone: str = ""
 
 
+class FirebaseIn(BaseModel):
+    idToken: str
+    role: Literal["person", "guardian"] = "person"
+
+
 class LocationIn(BaseModel):
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
@@ -218,6 +224,47 @@ def me_payload(user: dict) -> dict:
 
 def get_user(user_id: str) -> dict | None:
     return db.fetch_one("SELECT * FROM users WHERE id = ?", (user_id,))
+
+
+def verify_firebase_id_token(id_token: str) -> dict | None:
+    """Validate a Firebase ID token with Google and return its claims."""
+    project_id = os.environ.get("FIREBASE_PROJECT_ID", FIREBASE_PROJECT_ID).strip()
+    if not project_id or not id_token:
+        return None
+    url = "https://oauth2.googleapis.com/tokeninfo?" + urllib.parse.urlencode({"id_token": id_token})
+    try:
+        with urllib.request.urlopen(url, timeout=15) as res:
+            info = json.loads(res.read().decode("utf-8"))
+    except Exception:
+        return None
+    if info.get("aud") != project_id:
+        return None
+    if info.get("iss") != "https://securetoken.google.com/" + project_id:
+        return None
+    if info.get("email_verified") not in (True, "true", "True", 1, "1"):
+        return None
+    if not valid_email(normalize_email(str(info.get("email", "")))):
+        return None
+    return info
+
+
+def google_sign_in(email: str, name: str, role: str) -> dict | None:
+    """Reuse an existing account by email, otherwise create a Google-backed one."""
+    user = db.fetch_one("SELECT * FROM users WHERE email = ?", (email,))
+    if user:
+        db.execute("UPDATE users SET last_seen = ? WHERE id = ?", (db.now_iso(), user["id"]))
+        return get_user(user["id"])
+    uid = new_id("usr")
+    clean_name = str(name or email.split("@")[0]).strip()[:60] or "Google user"
+    hue = abs(hash(email)) % 360
+    link_code = new_link_code() if role == "person" else None
+    db.execute(
+        "INSERT INTO users (id, name, email, phone, role, password_hash, password_salt, provider, avatar_hue, link_code, created_at, last_seen) "
+        "VALUES (?, ?, ?, '', ?, NULL, NULL, 'google', ?, ?, ?, ?)",
+        (uid, clean_name, email, role, hue, link_code, iso(), iso()),
+    )
+    db.ensure_settings(uid)
+    return get_user(uid)
 
 
 def latest_location(user_id: str) -> dict | None:
@@ -650,21 +697,7 @@ def google_callback(request: Request, code: str = "", state: str = "", error: st
     if not valid_email(email):
         return RedirectResponse("/?oauth=email", status_code=302)
 
-    user = db.fetch_one("SELECT * FROM users WHERE email = ?", (email,))
-    if not user:
-        uid = new_id("usr")
-        name = str(info.get("name") or email.split("@")[0]).strip()[:60] or "Google user"
-        hue = abs(hash(email)) % 360
-        link_code = new_link_code() if role == "person" else None
-        db.execute(
-            "INSERT INTO users (id, name, email, phone, role, password_hash, password_salt, provider, avatar_hue, link_code, created_at, last_seen) "
-            "VALUES (?, ?, ?, '', ?, NULL, NULL, 'google', ?, ?, ?, ?)",
-            (uid, name, email, role, hue, link_code, iso(), iso()),
-        )
-        db.ensure_settings(uid)
-        user = get_user(uid)
-    else:
-        db.execute("UPDATE users SET last_seen = ? WHERE id = ?", (db.now_iso(), user["id"]))
+    user = google_sign_in(email, str(info.get("name") or ""), role)
     if not user:
         return RedirectResponse("/?oauth=exchange", status_code=302)
 
@@ -672,6 +705,21 @@ def google_callback(request: Request, code: str = "", state: str = "", error: st
     target.delete_cookie(OAUTH_STATE_COOKIE, path="/")
     set_session(target, user)
     return target
+
+
+@app.post("/api/auth/firebase")
+def firebase_login(body: FirebaseIn, request: Request, response: Response):
+    rate_limit(request, limit=20)
+    info = verify_firebase_id_token(body.idToken)
+    if not info:
+        raise HTTPException(status_code=401, detail="Google sign-in could not be verified. Please try again.")
+    email = normalize_email(str(info.get("email", "")))
+    role = body.role if body.role in ("person", "guardian") else "person"
+    user = google_sign_in(email, str(info.get("name") or ""), role)
+    if not user:
+        raise HTTPException(status_code=401, detail="We could not open your account. Please try again.")
+    set_session(response, user)
+    return {"user": me_payload(user)}
 
 
 @app.get("/api/me")
