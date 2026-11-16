@@ -60,7 +60,7 @@ python -m pip install -r requirements.txt
 python run.py
 ```
 
-The server starts at **http://127.0.0.1:8000** and opens your browser automatically. On first launch an empty SQLite database is created at `data/safety.db`; no accounts or records are inserted.
+The server starts at **http://localhost:8000** and opens your browser automatically. On first launch an empty SQLite database is created at `data/safety.db`; no accounts or records are inserted.
 
 ### Sign-in options
 
@@ -74,7 +74,7 @@ Google sign-in uses **Firebase Authentication**. The public web config lives in 
 
 1. In [Firebase Console](https://console.firebase.google.com/) open project **final-year-project-59262**.
 2. Go to **Authentication → Sign-in method** and enable **Google**.
-3. Under **Authentication → Settings → Authorized domains**, make sure `127.0.0.1` and `localhost` are listed.
+3. Under **Authentication → Settings → Authorized domains**, make sure `localhost` is listed. If you open the site at `127.0.0.1`, add `127.0.0.1` there too (Firebase does not authorise it by default).
 4. The browser signs in with a Google popup, then posts the Firebase ID token to `POST /api/auth/firebase`. The FastAPI server validates the token with Google (`iss`, `aud`, verified email) before creating the session.
 
 The Firebase web API key is public by design — it is not a client secret. Never put a service-account key in the repository.
@@ -223,7 +223,7 @@ All endpoints return JSON. Authentication is the `safety_session` HttpOnly cooki
 
 | Command | Description |
 | --- | --- |
-| `python run.py` | Start on `http://127.0.0.1:8000` and open the browser |
+| `python run.py` | Start on `http://localhost:8000` and open the browser |
 | `python run.py --port 9000` | Start on another port |
 | `python run.py --no-browser` | Start without opening a browser |
 | `python run.py --reload` | Auto-reload on file changes (development) |
