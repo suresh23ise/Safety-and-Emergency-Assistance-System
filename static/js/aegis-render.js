@@ -222,7 +222,7 @@
 
     const root = App.$("appRoot");
     root.innerHTML = App.views.viewHtml();
-    document.title = (App.isPerson() ? "Person console" : "Guardian console") + " · Safety & Emergency Assistance System";
+    document.title = (App.isGuest() ? "Guest preview" : App.isPerson() ? "Person console" : "Guardian console") + " · Safety & Emergency Assistance System";
 
     afterRender();
   }
