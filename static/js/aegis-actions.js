@@ -248,17 +248,21 @@
       el.innerHTML =
         '<div class="menu-user">' + A.avatar(me, 40) +
           "<div><strong>" + esc(me.name || "You") + "</strong><small>" + esc(me.email || "") + "</small></div>" +
-          '<span class="chip plain" style="margin-left:auto">' + esc(me.role === "person" ? "Person" : "Guardian") + "</span>" +
+          '<span class="chip plain" style="margin-left:auto">' + esc(me.role === "person" ? "Person" : me.role === "guest" ? "Guest" : "Guardian") + "</span>" +
         "</div>" +
         '<div class="menu-sep"></div>' +
-        '<button class="menu-item" type="button" data-action="edit-profile">' + icon("user") + " Edit profile</button>" +
+        (App.isGuest()
+          ? '<p class="menu-note">Guest mode is read-only. Sign in to share, message or respond.</p>'
+          : '<button class="menu-item" type="button" data-action="edit-profile">' + icon("user") + " Edit profile</button>") +
         '<button class="menu-item" type="button" data-open-themes>' + icon("palette") + " Appearance &amp; accessibility</button>" +
         '<button class="menu-item" type="button" data-action="toggle-notifications">' + icon("bell") + " Desktop notifications</button>" +
-        (App.isPerson()
-          ? '<button class="menu-item" type="button" data-action="invite">' + icon("users") + " Invite a guardian</button>"
-          : '<button class="menu-item" type="button" data-action="link-person">' + icon("plus") + " Link another person</button>") +
+        (App.isGuest()
+          ? ""
+          : App.isPerson()
+            ? '<button class="menu-item" type="button" data-action="invite">' + icon("users") + " Invite a guardian</button>"
+            : '<button class="menu-item" type="button" data-action="link-person">' + icon("plus") + " Link another person</button>") +
         '<div class="menu-sep"></div>' +
-        '<button class="menu-item danger" type="button" data-action="logout">' + icon("logout") + " Sign out</button>";
+        '<button class="menu-item danger" type="button" data-action="logout">' + icon("logout") + " " + (App.isGuest() ? "Exit guest mode" : "Sign out") + "</button>";
       return el;
     }
 
@@ -329,7 +333,9 @@
 
   document.addEventListener("click", function (event) {
     if (!state.popover) return;
-    if (event.target.closest("#popover") || event.target.closest("[data-action='profile']") || event.target.closest("[data-action='notifications']")) return;
+    const target = event.target;
+    if (!target || !target.closest) return;
+    if (target.closest("#popover") || target.closest("[data-action='profile']") || target.closest("[data-action='notifications']")) return;
     closePopover();
   });
 
@@ -933,14 +939,16 @@
 
   /* ------------------------------------------------------------- global events */
   document.addEventListener("click", function (event) {
-    const viewBtn = event.target.closest("[data-view]");
+    const target = event.target;
+    if (!target || !target.closest) return;
+    const viewBtn = target.closest("[data-view]");
     if (viewBtn) {
       event.preventDefault();
       go(viewBtn.dataset.view);
       return;
     }
 
-    const actionBtn = event.target.closest("[data-action]");
+    const actionBtn = target.closest("[data-action]");
     if (!actionBtn) return;
     const action = actionBtn.dataset.action;
 
@@ -1228,7 +1236,7 @@
   }
 
   document.addEventListener("pointerdown", function (event) {
-    const button = event.target.closest("#sosBtn");
+    const button = event.target && event.target.closest ? event.target.closest("#sosBtn") : null;
     if (!button) return;
     event.preventDefault();
     beginHold(button);
@@ -1236,13 +1244,13 @@
 
   ["pointerup", "pointercancel", "pointerleave"].forEach(function (type) {
     document.addEventListener(type, function (event) {
-      const button = event.target.closest("#sosBtn");
+      const button = event.target && event.target.closest ? event.target.closest("#sosBtn") : null;
       if (button && state.sos.holding) endHold(button, false);
     });
   });
 
   document.addEventListener("keydown", function (event) {
-    const button = event.target.closest("#sosBtn");
+    const button = event.target && event.target.closest ? event.target.closest("#sosBtn") : null;
     if (!button) return;
     if ((event.key === " " || event.key === "Enter") && !event.repeat) {
       event.preventDefault();
@@ -1251,7 +1259,7 @@
   });
 
   document.addEventListener("keyup", function (event) {
-    const button = event.target.closest("#sosBtn");
+    const button = event.target && event.target.closest ? event.target.closest("#sosBtn") : null;
     if (button && (event.key === " " || event.key === "Enter") && state.sos.holding) {
       event.preventDefault();
       endHold(button, false);
