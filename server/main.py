@@ -23,6 +23,8 @@ from typing import Literal
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 from pydantic import BaseModel, Field
 
 from . import db
@@ -227,21 +229,20 @@ def get_user(user_id: str) -> dict | None:
 
 
 def verify_firebase_id_token(id_token: str) -> dict | None:
-    """Validate a Firebase ID token with Google and return its claims."""
+    """Verify a Firebase ID token signature and claims via Google's certificates."""
     project_id = os.environ.get("FIREBASE_PROJECT_ID", FIREBASE_PROJECT_ID).strip()
     if not project_id or not id_token:
         return None
-    url = "https://oauth2.googleapis.com/tokeninfo?" + urllib.parse.urlencode({"id_token": id_token})
     try:
-        with urllib.request.urlopen(url, timeout=15) as res:
-            info = json.loads(res.read().decode("utf-8"))
-    except Exception:
+        info = google_id_token.verify_firebase_token(
+            id_token,
+            google_requests.Request(),
+            audience=project_id,
+        )
+    except Exception as exc:
+        print(f"Firebase token rejected: {type(exc).__name__}: {exc}")
         return None
-    if info.get("aud") != project_id:
-        return None
-    if info.get("iss") != "https://securetoken.google.com/" + project_id:
-        return None
-    if info.get("email_verified") not in (True, "true", "True", 1, "1"):
+    if not info.get("sub") or not info.get("email_verified"):
         return None
     if not valid_email(normalize_email(str(info.get("email", "")))):
         return None
