@@ -62,6 +62,26 @@ python run.py
 
 The server starts at **http://127.0.0.1:8000** and opens your browser automatically. On first launch an empty SQLite database is created at `data/safety.db`; no accounts or records are inserted.
 
+### Sign-in options
+
+- **Continue with Google** — real Google OAuth 2.0. A new Google account is created as a *person* account; an existing account with the same verified email is reused, so a guardian registered by email can also sign in with Google.
+- **Email and password** — register a person or guardian account directly.
+- **Continue as guest** — a read-only session with no personal data. Guests can open the console shell but cannot share location, post a status, raise an alert or send messages.
+
+#### Enable Google sign-in
+
+1. In Google Cloud Console, create an **OAuth 2.0 Client ID** of type *Web application*.
+2. Add the authorized redirect URI: `http://127.0.0.1:8000/api/auth/google/callback`
+3. Provide the credentials in either form:
+   - Environment variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and optionally `GOOGLE_REDIRECT_URI`.
+   - Or `data/oauth.json`:
+     ```json
+     {"client_id": "...", "client_secret": "...", "redirect_uri": "http://127.0.0.1:8000/api/auth/google/callback"}
+     ```
+4. Restart the server. Until credentials are present, the Google button returns to the login page with a setup message.
+
+`data/oauth.json` is inside the git-ignored `data/` folder — never commit your client secret.
+
 ### Create your first accounts
 
 1. Open the site and choose **Create account**.
@@ -140,6 +160,9 @@ All endpoints return JSON. Authentication is the `safety_session` HttpOnly cooki
 | --- | --- | --- |
 | `POST` | `/api/auth/register` | Create a person or guardian account |
 | `POST` | `/api/auth/login` | Email + password sign-in |
+| `POST` | `/api/auth/guest` | Start a read-only guest session |
+| `GET` | `/api/auth/google/start` | Begin Google OAuth sign-in |
+| `GET` | `/api/auth/google/callback` | Google OAuth redirect handler |
 | `POST` | `/api/auth/logout` | Clear the session |
 | `GET` | `/api/me` | Current user + settings + link code |
 | `PATCH` | `/api/me` | Update name, phone or preferences |
@@ -179,7 +202,9 @@ All endpoints return JSON. Authentication is the `safety_session` HttpOnly cooki
 - Login and registration are rate limited by client address.
 - Link codes are short, rotatable bearer secrets; rotating one immediately invalidates the old value.
 - No third-party analytics, advertising or location resale. GPS data stays in the local SQLite database.
-- Before public deployment: serve over HTTPS, set a fixed signing key via a secret manager, review the rate limits, and configure backups. OAuth providers are not included in this build — only email/password authentication is enabled.
+- Google sign-in uses OAuth 2.0 with a signed `state` cookie and only accepts Google-verified email addresses. Client secrets stay server-side in environment variables or the git-ignored `data/oauth.json`.
+- Guest sessions are read-only: they carry a guest role in the signed cookie, never touch the database, and every state-changing endpoint rejects them with `403`.
+- Before public deployment: serve over HTTPS, set a fixed signing key via a secret manager, review the rate limits, and configure backups. If you enable Google sign-in publicly, add your production HTTPS redirect URI to the Google OAuth client.
 
 ---
 
