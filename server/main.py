@@ -566,11 +566,12 @@ def guest_login(request: Request, response: Response):
 
 
 @app.get("/api/auth/google/start")
-def google_start(request: Request):
+def google_start(request: Request, role: str = "person"):
+    role = role if role in ("person", "guardian") else "person"
     client_id, client_secret, redirect_uri = google_config(str(request.base_url))
     if not client_id or not client_secret:
         return RedirectResponse("/?oauth=unconfigured", status_code=302)
-    state = secrets.token_urlsafe(24)
+    state = secrets.token_urlsafe(24) + ":" + role
     query = urllib.parse.urlencode(
         {
             "client_id": client_id,
@@ -601,6 +602,12 @@ def google_callback(request: Request, code: str = "", state: str = "", error: st
     expected = request.cookies.get(OAUTH_STATE_COOKIE) or ""
     if not code or not state or not expected or not hmac.compare_digest(state, expected):
         return RedirectResponse("/?oauth=state", status_code=302)
+
+    role = "person"
+    if ":" in expected:
+        candidate = expected.rsplit(":", 1)[1]
+        if candidate in ("person", "guardian"):
+            role = candidate
 
     client_id, client_secret, redirect_uri = google_config(str(request.base_url))
     if not client_id or not client_secret:
@@ -648,10 +655,11 @@ def google_callback(request: Request, code: str = "", state: str = "", error: st
         uid = new_id("usr")
         name = str(info.get("name") or email.split("@")[0]).strip()[:60] or "Google user"
         hue = abs(hash(email)) % 360
+        link_code = new_link_code() if role == "person" else None
         db.execute(
             "INSERT INTO users (id, name, email, phone, role, password_hash, password_salt, provider, avatar_hue, link_code, created_at, last_seen) "
-            "VALUES (?, ?, ?, '', 'person', NULL, NULL, 'google', ?, ?, ?, ?)",
-            (uid, name, email, hue, new_link_code(), iso(), iso()),
+            "VALUES (?, ?, ?, '', ?, NULL, NULL, 'google', ?, ?, ?, ?)",
+            (uid, name, email, role, hue, link_code, iso(), iso()),
         )
         db.ensure_settings(uid)
         user = get_user(uid)
@@ -730,6 +738,22 @@ def rotate_code(user: dict = Depends(writer_user)):
 # --------------------------------------------------------------------------- dashboard
 @app.get("/api/dashboard")
 async def dashboard(user: dict = Depends(current_user)):
+    if user["role"] == "guest":
+        return {
+            "me": me_payload(user),
+            "serverTime": db.now_iso(),
+            "guest": True,
+            "people": [],
+            "guardians": [],
+            "location": None,
+            "status": None,
+            "alerts": [],
+            "activeAlerts": [],
+            "checkinRequests": [],
+            "statusHistory": [],
+            "messages": [],
+            "stats": {"distance24h": 0, "checkins24h": 0, "alerts7d": 0, "points24h": 0},
+        }
     db.execute("UPDATE users SET last_seen = ? WHERE id = ?", (db.now_iso(), user["id"]))
     base = {"me": me_payload(user), "serverTime": db.now_iso()}
 
