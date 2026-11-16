@@ -84,7 +84,9 @@
       "auth/operation-not-allowed": "Google sign-in is not enabled for this Firebase project. In Firebase Console open Authentication → Sign-in method and enable Google.",
       "auth/configuration-not-found": "Firebase Authentication is not set up for this project yet. Open Firebase Console → Authentication → Get started, then enable the Google sign-in method.",
       "auth/api-key-not-valid.-please-pass-a-valid-api-key.": "The Firebase web API key is not valid. Check static/js/firebase-config.js.",
-      "auth/unauthorized-domain": "This address is not authorised in Firebase. Add 127.0.0.1 under Authentication → Settings → Authorized domains.",
+      "auth/unauthorized-domain": location.hostname === "127.0.0.1"
+        ? "Google sign-in needs an authorised domain. Open http://localhost:8000 instead, or add 127.0.0.1 in Firebase Console → Authentication → Settings → Authorized domains."
+        : "This domain is not authorised in Firebase. Add it under Authentication → Settings → Authorized domains.",
       "auth/network-request-failed": "Could not reach Google. Check your internet connection and try again.",
       "auth/account-exists-with-different-credential": "This email is already linked with a different sign-in method. Use that method instead.",
       "auth/internal-error": "Google sign-in is temporarily unavailable. Please try again.",
