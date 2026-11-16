@@ -6,8 +6,14 @@ and their guardians. REST for state, WebSockets for live updates.
 from __future__ import annotations
 
 import asyncio
+import hmac
+import json
 import math
+import os
+import secrets
 import time
+import urllib.parse
+import urllib.request
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -15,7 +21,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -35,6 +41,52 @@ ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
 COOKIE = "safety_session"
 THEMES = {"sunset", "cyber", "aurora", "ocean", "midnight", "magma", "forest", "titanium"}
+OAUTH_STATE_COOKIE = "oauth_state"
+GUEST_ID = "usr_guest"
+GUEST_USER = {
+    "id": GUEST_ID,
+    "name": "Guest",
+    "email": "",
+    "phone": "",
+    "role": "guest",
+    "avatar_hue": 42,
+    "provider": "guest",
+    "link_code": None,
+    "created_at": None,
+    "last_seen": None,
+}
+GUEST_SETTINGS = {
+    "autoShare": False,
+    "shareSeconds": 5,
+    "checkinMinutes": 10,
+    "checkinEnabled": False,
+    "theme": "sunset",
+    "voice": False,
+    "textScale": 1,
+    "reduceMotion": False,
+    "highContrast": False,
+    "sosHoldMs": 2000,
+}
+
+
+def google_config(base_url: str | None = None) -> tuple[str, str, str]:
+    """Return (client_id, client_secret, redirect_uri) from env or data/oauth.json."""
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
+    redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI", "").strip()
+    config_file = ROOT / "data" / "oauth.json"
+    if (not client_id or not client_secret) and config_file.exists():
+        try:
+            config = json.loads(config_file.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            config = {}
+        client_id = client_id or str(config.get("client_id", "")).strip()
+        client_secret = client_secret or str(config.get("client_secret", "")).strip()
+        redirect_uri = redirect_uri or str(config.get("redirect_uri", "")).strip()
+    if not redirect_uri:
+        base = (base_url or "http://127.0.0.1:8000").rstrip("/")
+        redirect_uri = base + "/api/auth/google/callback"
+    return client_id, client_secret, redirect_uri
 
 
 # --------------------------------------------------------------------------- realtime
@@ -154,6 +206,11 @@ def public_user(user: dict) -> dict:
 
 def me_payload(user: dict) -> dict:
     data = public_user(user)
+    if user.get("role") == "guest":
+        data["linkCode"] = None
+        data["settings"] = dict(GUEST_SETTINGS)
+        data["readOnly"] = True
+        return data
     data["linkCode"] = user.get("link_code")
     data["settings"] = db.settings_for(user["id"])
     return data
@@ -376,9 +433,18 @@ def current_user(request: Request) -> dict:
     data = verify_token(token_from_request(request))
     if not data:
         raise HTTPException(status_code=401, detail="Please sign in to continue.")
+    if data["sub"] == GUEST_ID:
+        return dict(GUEST_USER)
     user = get_user(data["sub"])
     if not user:
         raise HTTPException(status_code=401, detail="Session expired. Please sign in again.")
+    return user
+
+
+def writer_user(user: dict = Depends(current_user)) -> dict:
+    """Reject read-only guest sessions for every state-changing endpoint."""
+    if user["role"] == "guest":
+        raise HTTPException(status_code=403, detail="Guest mode is read-only. Sign in to make changes.")
     return user
 
 
@@ -491,6 +557,115 @@ def logout(response: Response):
     return {"ok": True}
 
 
+@app.post("/api/auth/guest")
+def guest_login(request: Request, response: Response):
+    rate_limit(request, limit=30)
+    user = dict(GUEST_USER)
+    set_session(response, user)
+    return {"user": me_payload(user), "readOnly": True}
+
+
+@app.get("/api/auth/google/start")
+def google_start(request: Request):
+    client_id, client_secret, redirect_uri = google_config(str(request.base_url))
+    if not client_id or not client_secret:
+        return RedirectResponse("/?oauth=unconfigured", status_code=302)
+    state = secrets.token_urlsafe(24)
+    query = urllib.parse.urlencode(
+        {
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "scope": "openid email profile",
+            "state": state,
+            "access_type": "online",
+            "prompt": "select_account",
+        }
+    )
+    response = RedirectResponse("https://accounts.google.com/o/oauth2/v2/auth?" + query, status_code=302)
+    response.set_cookie(
+        OAUTH_STATE_COOKIE,
+        state,
+        max_age=600,
+        httponly=True,
+        samesite="lax",
+        path="/",
+    )
+    return response
+
+
+@app.get("/api/auth/google/callback")
+def google_callback(request: Request, code: str = "", state: str = "", error: str = ""):
+    if error:
+        return RedirectResponse("/?oauth=denied", status_code=302)
+    expected = request.cookies.get(OAUTH_STATE_COOKIE) or ""
+    if not code or not state or not expected or not hmac.compare_digest(state, expected):
+        return RedirectResponse("/?oauth=state", status_code=302)
+
+    client_id, client_secret, redirect_uri = google_config(str(request.base_url))
+    if not client_id or not client_secret:
+        return RedirectResponse("/?oauth=unconfigured", status_code=302)
+
+    try:
+        body = urllib.parse.urlencode(
+            {
+                "code": code,
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code",
+            }
+        ).encode("utf-8")
+        token_req = urllib.request.Request(
+            "https://oauth2.googleapis.com/token",
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        with urllib.request.urlopen(token_req, timeout=20) as res:
+            token_data = json.loads(res.read().decode("utf-8"))
+        access_token = token_data.get("access_token")
+        if not access_token:
+            raise ValueError("missing access token")
+        info_req = urllib.request.Request(
+            "https://openidconnect.googleapis.com/v1/userinfo",
+            headers={"Authorization": "Bearer " + access_token},
+        )
+        with urllib.request.urlopen(info_req, timeout=20) as res:
+            info = json.loads(res.read().decode("utf-8"))
+    except Exception:
+        return RedirectResponse("/?oauth=exchange", status_code=302)
+
+    if not info.get("email_verified"):
+        return RedirectResponse("/?oauth=email", status_code=302)
+
+    email = normalize_email(str(info.get("email", "")))
+    if not valid_email(email):
+        return RedirectResponse("/?oauth=email", status_code=302)
+
+    user = db.fetch_one("SELECT * FROM users WHERE email = ?", (email,))
+    if not user:
+        uid = new_id("usr")
+        name = str(info.get("name") or email.split("@")[0]).strip()[:60] or "Google user"
+        hue = abs(hash(email)) % 360
+        db.execute(
+            "INSERT INTO users (id, name, email, phone, role, password_hash, password_salt, provider, avatar_hue, link_code, created_at, last_seen) "
+            "VALUES (?, ?, ?, '', 'person', NULL, NULL, 'google', ?, ?, ?, ?)",
+            (uid, name, email, hue, new_link_code(), iso(), iso()),
+        )
+        db.ensure_settings(uid)
+        user = get_user(uid)
+    else:
+        db.execute("UPDATE users SET last_seen = ? WHERE id = ?", (db.now_iso(), user["id"]))
+    if not user:
+        return RedirectResponse("/?oauth=exchange", status_code=302)
+
+    target = RedirectResponse("/app", status_code=302)
+    target.delete_cookie(OAUTH_STATE_COOKIE, path="/")
+    set_session(target, user)
+    return target
+
+
 @app.get("/api/me")
 def api_me(user: dict = Depends(current_user)):
     db.execute("UPDATE users SET last_seen = ? WHERE id = ?", (db.now_iso(), user["id"]))
@@ -499,7 +674,7 @@ def api_me(user: dict = Depends(current_user)):
 
 
 @app.patch("/api/me")
-def update_me(body: ProfileIn, user: dict = Depends(current_user)):
+def update_me(body: ProfileIn, user: dict = Depends(writer_user)):
     if body.name is not None:
         name = body.name.strip()
         if len(name) < 2:
@@ -541,7 +716,7 @@ def update_me(body: ProfileIn, user: dict = Depends(current_user)):
 
 
 @app.post("/api/me/rotate-code")
-def rotate_code(user: dict = Depends(current_user)):
+def rotate_code(user: dict = Depends(writer_user)):
     if user["role"] != "person":
         raise HTTPException(status_code=403, detail="Only a person account has a guardian link code.")
     for _ in range(12):
@@ -612,7 +787,7 @@ async def dashboard(user: dict = Depends(current_user)):
 
 # --------------------------------------------------------------------------- location
 @app.post("/api/locations")
-async def post_location(body: LocationIn, user: dict = Depends(current_user)):
+async def post_location(body: LocationIn, user: dict = Depends(writer_user)):
     if user["role"] != "person":
         raise HTTPException(status_code=403, detail="Only a person account can share live location.")
     db.execute(
@@ -656,7 +831,7 @@ def get_locations(person_id: str, limit: int = 500, user: dict = Depends(current
 
 # --------------------------------------------------------------------------- status
 @app.post("/api/status")
-async def post_status(body: StatusIn, user: dict = Depends(current_user)):
+async def post_status(body: StatusIn, user: dict = Depends(writer_user)):
     if user["role"] != "person":
         raise HTTPException(status_code=403, detail="Only a person account can post a safety status.")
     note = body.note.strip()[:300]
@@ -703,7 +878,7 @@ def get_statuses(person_id: str, limit: int = 100, user: dict = Depends(current_
 
 # --------------------------------------------------------------------------- alerts
 @app.post("/api/alerts")
-async def create_alert(body: AlertIn, user: dict = Depends(current_user)):
+async def create_alert(body: AlertIn, user: dict = Depends(writer_user)):
     if user["role"] != "person":
         raise HTTPException(status_code=403, detail="Only a person account can raise an alert.")
     loc = latest_location(user["id"])
@@ -749,7 +924,7 @@ def get_alerts(person_id: str, limit: int = 100, active: bool = False, user: dic
 
 
 @app.post("/api/alerts/{alert_id}/ack")
-async def ack_alert(alert_id: str, user: dict = Depends(current_user)):
+async def ack_alert(alert_id: str, user: dict = Depends(writer_user)):
     alert = db.fetch_one("SELECT * FROM alerts WHERE id = ?", (alert_id,))
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found.")
@@ -774,7 +949,7 @@ async def ack_alert(alert_id: str, user: dict = Depends(current_user)):
 
 
 @app.post("/api/alerts/{alert_id}/resolve")
-async def resolve_alert(alert_id: str, user: dict = Depends(current_user)):
+async def resolve_alert(alert_id: str, user: dict = Depends(writer_user)):
     alert = db.fetch_one("SELECT * FROM alerts WHERE id = ?", (alert_id,))
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found.")
@@ -799,7 +974,7 @@ async def resolve_alert(alert_id: str, user: dict = Depends(current_user)):
 
 # --------------------------------------------------------------------------- check-ins
 @app.post("/api/checkin-requests")
-async def request_checkin(body: CheckinIn, user: dict = Depends(current_user)):
+async def request_checkin(body: CheckinIn, user: dict = Depends(writer_user)):
     if user["role"] != "guardian" or not is_linked(body.personId, user["id"]):
         raise HTTPException(status_code=403, detail="Only a linked guardian can request a check-in.")
     existing = db.fetch_one(
@@ -850,7 +1025,7 @@ def get_messages(peer_id: str, limit: int = 200, user: dict = Depends(current_us
 
 
 @app.post("/api/messages")
-async def send_message(body: MessageIn, user: dict = Depends(current_user)):
+async def send_message(body: MessageIn, user: dict = Depends(writer_user)):
     if not can_message(user, body.toId):
         raise HTTPException(status_code=403, detail="You are not connected to this person.")
     text = body.text.strip()[:1000]
@@ -882,7 +1057,7 @@ def list_links(user: dict = Depends(current_user)):
 
 
 @app.post("/api/links")
-def add_link(body: LinkIn, user: dict = Depends(current_user)):
+def add_link(body: LinkIn, user: dict = Depends(writer_user)):
     if user["role"] != "guardian":
         raise HTTPException(status_code=403, detail="Only a guardian can link to a person.")
     code = body.code.strip().upper()
@@ -896,7 +1071,7 @@ def add_link(body: LinkIn, user: dict = Depends(current_user)):
 
 
 @app.delete("/api/links/{person_id}")
-def remove_link(person_id: str, user: dict = Depends(current_user)):
+def remove_link(person_id: str, user: dict = Depends(writer_user)):
     if user["role"] != "guardian":
         raise HTTPException(status_code=403, detail="Only a guardian can remove a link.")
     db.execute("DELETE FROM links WHERE person_id = ? AND guardian_id = ?", (person_id, user["id"]))
@@ -938,12 +1113,16 @@ async def websocket_endpoint(ws: WebSocket, token: str | None = None):
     if not data:
         await ws.close(code=4401)
         return
-    user = get_user(data["sub"])
+    if data["sub"] == GUEST_ID:
+        user = dict(GUEST_USER)
+    else:
+        user = get_user(data["sub"])
     if not user:
         await ws.close(code=4401)
         return
     await manager.connect(user["id"], ws)
-    db.execute("UPDATE users SET last_seen = ? WHERE id = ?", (db.now_iso(), user["id"]))
+    if user["role"] != "guest":
+        db.execute("UPDATE users SET last_seen = ? WHERE id = ?", (db.now_iso(), user["id"]))
     try:
         await ws.send_json({"type": "hello", "userId": user["id"], "role": user["role"], "serverTime": db.now_iso()})
         while True:
