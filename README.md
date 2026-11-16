@@ -64,7 +64,7 @@ The server starts at **http://127.0.0.1:8000** and opens your browser automatica
 
 ### Sign-in options
 
-- **Continue with Google** — real Google OAuth 2.0. A new Google account is created as a *person* account; an existing account with the same verified email is reused, so a guardian registered by email can also sign in with Google.
+- **Continue with Google** — real Google OAuth 2.0. A new Google account is created with the role chosen in **I am joining as** (*person* or *guardian*); an existing account with the same verified email is reused and keeps its saved role.
 - **Email and password** — register a person or guardian account directly.
 - **Continue as guest** — a read-only session with no personal data. Guests can open the console shell but cannot share location, post a status, raise an alert or send messages.
 
@@ -85,10 +85,11 @@ The server starts at **http://127.0.0.1:8000** and opens your browser automatica
 ### Create your first accounts
 
 1. Open the site and choose **Create account**.
-2. Register the **person** account (select *Visually impaired*). Their **guardian link code** is shown in the care-circle card and account menu.
-3. Sign out, then register a **guardian** account (or use a second browser/incognito window).
-4. As the guardian, open the account menu → **Link another person** and enter the person's code (format `SAFE-XXXX`).
-5. Sign back in as the person and switch on **Share live location**; allow the browser location prompt.
+2. In **I am joining as**, pick **Visually impaired person** or **Guardian**. The same choice applies to **Continue with Google**.
+3. Register the **person** account. Their **guardian link code** is shown in the care-circle card and account menu.
+4. Sign out, then register a **guardian** account (or use a second browser/incognito window).
+5. As the guardian, open the account menu → **Link another person** and enter the person's code (format `SAFE-XXXX`).
+6. Sign back in as the person and switch on **Share live location**; allow the browser location prompt.
 
 Each person can invite multiple guardians. Codes can be rotated at any time to revoke old invitations.
 
