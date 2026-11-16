@@ -424,6 +424,9 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    if request.url.path == "/" or request.url.path == "/app" or request.url.path.startswith("/static/"):
+        # Always revalidate so a redeploy is picked up without a hard refresh.
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
     return response
 
 
