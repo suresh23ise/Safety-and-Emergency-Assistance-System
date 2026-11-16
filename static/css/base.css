@@ -8,6 +8,9 @@
 
 * { margin: 0; }
 
+/* Keep the HTML hidden attribute authoritative over component display rules. */
+[hidden] { display: none !important; }
+
 :root {
   --font-ui: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
