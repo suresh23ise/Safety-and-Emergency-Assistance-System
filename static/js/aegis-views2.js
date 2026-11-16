@@ -417,10 +417,28 @@
       '<div class="history-toolbar">' + tabs + '<div class="spacer"></div>' + ranges + "</div>" + body;
   }
 
+  function guestHome() {
+    const head = V().pageHead({
+      eyebrow: "Guest preview",
+      title: "You're browsing as a guest",
+      sub: '<span class="chip plain">Read-only</span><span class="sep">·</span><span>No account data is shown</span>',
+      actions: '<a class="btn btn-primary" href="/">Sign in or create account</a>',
+    });
+    return (
+      head +
+      '<section class="card empty" style="min-height:42vh">' + icon("shield") +
+        "<strong>Guest mode is read-only</strong>" +
+        "<span>This is an empty guest session. Sign in or create an account to link a person and see live safety information.</span>" +
+        '<a class="btn btn-primary" href="/" style="margin-top:1rem">Sign in or create account</a>' +
+      "</section>"
+    );
+  }
+
   function viewHtml() {
     if (!state.dash || !state.me) {
       return '<div class="empty" style="min-height:50vh">' + icon("shield") + "<strong>Opening your safety console…</strong><span>Connecting to your account</span></div>";
     }
+    if (App.isGuest()) return guestHome();
     if (state.view === "messages") return App.views.messagesView();
     if (App.isPerson()) {
       if (state.view === "history") return historyView();
