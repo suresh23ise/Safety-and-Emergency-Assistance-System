@@ -128,6 +128,38 @@
       history.replaceState({}, "", "/");
     }
 
+    const oauth = params.get("oauth");
+    if (oauth) {
+      const messages = {
+        unconfigured: "Google sign-in is not configured yet. Add your Google OAuth Client ID and Secret to enable it.",
+        denied: "Google sign-in was cancelled.",
+        state: "Google sign-in session expired. Please try again.",
+        exchange: "Google could not confirm your account. Please try again.",
+        email: "Google did not return a verified email address.",
+      };
+      toast(messages[oauth] || "Google sign-in failed. Please try again.", "warn", 7000);
+      history.replaceState({}, "", "/");
+    }
+
+    const guestBtn = $("guestBtn");
+    if (guestBtn) {
+      guestBtn.addEventListener("click", async function () {
+        if (guestBtn.disabled) return;
+        guestBtn.disabled = true;
+        setError("");
+        try {
+          await api("/api/auth/guest", { method: "POST" });
+          window.location.href = "/app";
+        } catch (err) {
+          setError(err.message || "Guest mode is unavailable right now.");
+          guestBtn.disabled = false;
+          if (err.status === 0) {
+            toast("Server offline — run python run.py in the project folder.", "danger");
+          }
+        }
+      });
+    }
+
     // Warm up audio on the first deliberate interaction.
     document.addEventListener("click", function once() {
       try { Aegis.sound("tap"); } catch (e) {}
