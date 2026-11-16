@@ -64,23 +64,22 @@ The server starts at **http://127.0.0.1:8000** and opens your browser automatica
 
 ### Sign-in options
 
-- **Continue with Google** — real Google OAuth 2.0. A new Google account is created with the role chosen in **I am joining as** (*person* or *guardian*); an existing account with the same verified email is reused and keeps its saved role.
+- **Continue with Google** — Google Identity via Firebase Authentication. A new Google account is created with the role chosen in **I am joining as** (*person* or *guardian*); an existing account with the same verified email is reused and keeps its saved role.
 - **Email and password** — register a person or guardian account directly.
 - **Continue as guest** — a read-only session with no personal data. Guests can open the console shell but cannot share location, post a status, raise an alert or send messages.
 
 #### Enable Google sign-in
 
-1. In Google Cloud Console, create an **OAuth 2.0 Client ID** of type *Web application*.
-2. Add the authorized redirect URI: `http://127.0.0.1:8000/api/auth/google/callback`
-3. Provide the credentials in either form:
-   - Environment variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and optionally `GOOGLE_REDIRECT_URI`.
-   - Or `data/oauth.json`:
-     ```json
-     {"client_id": "...", "client_secret": "...", "redirect_uri": "http://127.0.0.1:8000/api/auth/google/callback"}
-     ```
-4. Restart the server. Until credentials are present, the Google button returns to the login page with a setup message.
+Google sign-in uses **Firebase Authentication**. The public web config lives in `static/js/firebase-config.js`.
 
-`data/oauth.json` is inside the git-ignored `data/` folder — never commit your client secret.
+1. In [Firebase Console](https://console.firebase.google.com/) open project **final-year-project-59262**.
+2. Go to **Authentication → Sign-in method** and enable **Google**.
+3. Under **Authentication → Settings → Authorized domains**, make sure `127.0.0.1` and `localhost` are listed.
+4. The browser signs in with a Google popup, then posts the Firebase ID token to `POST /api/auth/firebase`. The FastAPI server validates the token with Google (`iss`, `aud`, verified email) before creating the session.
+
+The Firebase web API key is public by design — it is not a client secret. Never put a service-account key in the repository.
+
+Direct Google OAuth is still supported as a fallback: set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (or `data/oauth.json`) and the server exposes `/api/auth/google/start` and `/api/auth/google/callback`. `data/oauth.json` is git-ignored.
 
 ### Create your first accounts
 
@@ -162,8 +161,9 @@ All endpoints return JSON. Authentication is the `safety_session` HttpOnly cooki
 | `POST` | `/api/auth/register` | Create a person or guardian account |
 | `POST` | `/api/auth/login` | Email + password sign-in |
 | `POST` | `/api/auth/guest` | Start a read-only guest session |
-| `GET` | `/api/auth/google/start` | Begin Google OAuth sign-in |
-| `GET` | `/api/auth/google/callback` | Google OAuth redirect handler |
+| `POST` | `/api/auth/firebase` | Exchange a Firebase ID token for a session |
+| `GET` | `/api/auth/google/start` | Begin direct Google OAuth (fallback) |
+| `GET` | `/api/auth/google/callback` | Google OAuth redirect handler (fallback) |
 | `POST` | `/api/auth/logout` | Clear the session |
 | `GET` | `/api/me` | Current user + settings + link code |
 | `PATCH` | `/api/me` | Update name, phone or preferences |
@@ -203,9 +203,9 @@ All endpoints return JSON. Authentication is the `safety_session` HttpOnly cooki
 - Login and registration are rate limited by client address.
 - Link codes are short, rotatable bearer secrets; rotating one immediately invalidates the old value.
 - No third-party analytics, advertising or location resale. GPS data stays in the local SQLite database.
-- Google sign-in uses OAuth 2.0 with a signed `state` cookie and only accepts Google-verified email addresses. Client secrets stay server-side in environment variables or the git-ignored `data/oauth.json`.
+- Google sign-in uses Firebase Authentication. The server validates every ID token against Google before creating a session, and only accepts verified email addresses.
 - Guest sessions are read-only: they carry a guest role in the signed cookie, never touch the database, and every state-changing endpoint rejects them with `403`.
-- Before public deployment: serve over HTTPS, set a fixed signing key via a secret manager, review the rate limits, and configure backups. If you enable Google sign-in publicly, add your production HTTPS redirect URI to the Google OAuth client.
+- Before public deployment: serve over HTTPS, set a fixed signing key via a secret manager, review the rate limits, and configure backups. If you enable Google sign-in publicly, add your production HTTPS domain to Firebase Authentication → Authorized domains.
 
 ---
 
