@@ -34,11 +34,23 @@
     });
     const register = mode === "register";
     $("nameField").hidden = !register;
-    $("roleField").hidden = !register;
     $("phoneField").hidden = !register;
     els.password.autocomplete = register ? "new-password" : "current-password";
     if (els.submitLabel) els.submitLabel.textContent = register ? "Create my account" : "Sign in securely";
     setError("");
+  }
+
+  function updateGoogleHref() {
+    const link = $("googleBtn");
+    if (!link) return;
+    const role = state.role === "guardian" ? "guardian" : "person";
+    link.href = "/api/auth/google/start?role=" + role;
+    const label = link.querySelector("span");
+    if (label) label.textContent = "Continue with Google";
+    link.setAttribute(
+      "aria-label",
+      "Continue with Google as " + (role === "guardian" ? "a guardian" : "a visually impaired person")
+    );
   }
 
   function setRole(role) {
@@ -48,6 +60,7 @@
       btn.classList.toggle("active", on);
       btn.setAttribute("aria-checked", on ? "true" : "false");
     });
+    updateGoogleHref();
   }
 
   async function signInWithPassword(event) {
@@ -107,6 +120,7 @@
     document.querySelectorAll("[data-role]").forEach(function (btn) {
       btn.addEventListener("click", function () { setRole(btn.dataset.role); });
     });
+    updateGoogleHref();
 
     $("authForm").addEventListener("submit", signInWithPassword);
 
