@@ -250,8 +250,9 @@
           '<button class="status-option help' + (st && st.state === "help" ? " active" : "") + '" type="button" data-action="status" data-state="help">' +
             '<span class="status-ico">' + icon("alert") + "</span><strong>Need help</strong><small>Alert my guardians</small></button>" +
         "</div>" +
-        '<div class="status-note-row">' +
+        '<div class="status-note-row input-with-mic">' +
           '<input class="input" id="statusNote" type="text" maxlength="140" placeholder="Optional note attached to your next check-in" aria-label="Optional note for your guardians" />' +
+          '<button class="mic-btn" type="button" data-action="voice-type" data-target="statusNote" aria-label="Dictate a note">' + icon("mic") + "</button>" +
         "</div>" +
         '<div class="checkin-footer">' +
           "<div><p class=\"mini-label\">Automatic check-ins</p><p class=\"muted\">Every " + (settings.checkinMinutes || 10) + ' min · next in <span class="countdown" id="checkinCountdown">--:--</span></p></div>' +
@@ -278,11 +279,28 @@
           '<div><span class="mini-label">Coordinates</span><span class="mono" data-live-coords>' + esc(App.coordText(loc)) + "</span></div>" +
           '<div><span class="mini-label">Accuracy</span><span class="mono" data-live-acc>' + (loc ? "±" + Math.round(loc.accuracy || 0) + " m" : "—") + "</span></div>" +
           '<div><span class="mini-label">Updated</span><span class="mono" data-rel="' + esc(loc && loc.ts) + '">' + (loc ? timeAgo(loc.ts) : "—") + "</span></div>" +
+          (loc ? '<a class="btn btn-small btn-outline" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(loc.lat + "," + loc.lng) + '">' + icon("globe") + " Google Maps</a>" : "") +
           '<button class="btn btn-small btn-outline" type="button" data-action="recenter">' + icon("nav") + " Recenter</button>" +
         "</div>" +
         '<div class="share-note">' + icon(sharing ? "wifi" : "lock") +
           "<span>" + (sharing ? "Guardians can watch this map live using your device GPS." : "Guardians see your last known location. Turn on sharing to update it live.") + "</span>" +
         "</div>" +
+      "</section>";
+
+    const voiceSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    const voiceCard =
+      '<section class="card voice-card">' +
+        '<div class="card-head"><div><p class="eyebrow">Hands-free</p><h2>Voice control</h2></div>' + icon("mic") + "</div>" +
+        '<p class="muted" style="font-size:.74rem;line-height:1.55">' +
+          (voiceSupported
+            ? "Control the console without seeing the screen. Say \u201Chelp\u201D for an emergency, \u201CI am safe\u201D, \u201Cwhere am I\u201D, or \u201Copen messages\u201D."
+            : "Voice control needs Chrome, Edge or Safari with a microphone.") +
+        "</p>" +
+        '<div class="vstack" style="margin-top:.7rem">' +
+          '<button class="btn btn-primary btn-block" type="button" data-action="voice-start"' + (voiceSupported ? "" : " disabled") + ">" + icon("mic") + " Start voice control</button>" +
+          '<button class="btn btn-outline btn-block" type="button" data-action="voice-message"' + (voiceSupported ? "" : " disabled") + ">" + icon("message") + " Dictate a message</button>" +
+        "</div>" +
+        '<p class="faint" style="font-size:.66rem;margin-top:.55rem;line-height:1.5">Shortcut: <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>. Voice typing works in the check-in note and message box.</p>' +
       "</section>";
 
     const guardiansCard =
@@ -333,6 +351,7 @@
       '<div class="person-grid">' +
         sosCard +
         statusCard +
+        voiceCard +
         mapCard +
         guardiansCard +
       "</div>" +
@@ -408,6 +427,7 @@
 
     const composer =
       '<form class="chat-composer" id="chatForm">' +
+        '<button class="btn btn-outline mic-btn" type="button" data-action="voice-type" data-target="chatInput" aria-label="Dictate message">' + icon("mic") + "</button>" +
         '<textarea id="chatInput" rows="1" maxlength="1000" placeholder="Write a message to ' + esc(A.firstName(peer.name)) + '…" aria-label="Message"></textarea>' +
         '<button class="btn btn-primary send-btn" type="submit" aria-label="Send message">' + icon("send") + "</button>" +
       "</form>" +
