@@ -230,6 +230,28 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function startVoiceMessage() {
+    if (!window.AegisVoice || !window.AegisVoice.supported) {
+      A.toast("Voice typing needs Chrome, Edge or Safari with microphone support.", "warn", 6500);
+      return;
+    }
+    const peers = App.peersList();
+    if (!peers.length) {
+      A.toast(
+        App.isPerson() ? "Link a guardian before sending a voice message." : "Link a person before sending a voice message.",
+        "warn"
+      );
+      return;
+    }
+    state.chat.peerId = peers[0].id;
+    go("messages");
+    setTimeout(function () {
+      const input = document.getElementById("chatInput");
+      if (input) input.focus();
+      window.AegisVoice.dictate("chatInput");
+    }, 550);
+  }
+
   /* ------------------------------------------------------------- popovers */
   function closePopover() {
     const node = document.getElementById("popover");
@@ -455,7 +477,8 @@
         '<button class="close-btn" type="button" data-close-sheet aria-label="Close">' + icon("x") + "</button></div>" +
       '<div class="vstack">' +
         '<div class="field"><label for="emergencyText">What is happening? (optional)</label>' +
-          '<textarea class="input" id="emergencyText" maxlength="400" placeholder="I feel unsafe, please call me."></textarea></div>' +
+          '<div class="input-with-mic"><textarea class="input" id="emergencyText" maxlength="400" placeholder="I feel unsafe, please call me."></textarea>' +
+          '<button class="mic-btn" type="button" data-action="voice-type" data-target="emergencyText" aria-label="Dictate what is happening">' + icon("mic") + "</button></div></div>" +
         '<div class="chip plain">' + icon("pin") + " " + esc(loc ? App.coordText(loc) : "Last known location will be attached") + "</div>" +
         '<div class="hstack wrap" style="margin-top:.4rem">' +
           '<button class="btn btn-danger" type="button" id="emergencySend">' + icon("alert") + " Send emergency alert</button>" +
@@ -1035,6 +1058,24 @@
     }
     if (action === "quick-message") {
       sendMessage(actionBtn.dataset.text);
+      return;
+    }
+    if (action === "voice-type") {
+      const target = actionBtn.dataset.target || "chatInput";
+      if (window.AegisVoice) window.AegisVoice.dictate(target);
+      return;
+    }
+    if (action === "voice-start") {
+      if (window.AegisVoice) window.AegisVoice.start();
+      return;
+    }
+    if (action === "voice-message") {
+      startVoiceMessage();
+      return;
+    }
+    if (action === "start-sharing") {
+      if (App.isPerson()) startDeviceGps();
+      else A.toast("Only the person sharing their location can start it.", "info");
       return;
     }
     if (action === "request-checkin") {
