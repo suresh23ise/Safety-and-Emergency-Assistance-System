@@ -36,39 +36,151 @@
     el.innerHTML = "";
   }
 
+  const ESRI_DARK = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}";
+  const ESRI_DARK_LABELS = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}";
+  const ESRI_IMAGERY = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+  const OSM_TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+  const TILE_ATTRIBUTION =
+    'Tiles &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> ' +
+    '&copy; <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>';
+
+  function addTiles(map, el) {
+    const streets = window.L.tileLayer(OSM_TILES, {
+      maxZoom: 20,
+      attribution: TILE_ATTRIBUTION,
+    });
+    const satellite = window.L.tileLayer(ESRI_IMAGERY, {
+      maxZoom: 19,
+      attribution: TILE_ATTRIBUTION,
+    });
+    const darkBase = window.L.tileLayer(ESRI_DARK, {
+      maxZoom: 19,
+      attribution: TILE_ATTRIBUTION,
+    });
+    const darkLabels = window.L.tileLayer(ESRI_DARK_LABELS, {
+      maxZoom: 19,
+      attribution: "",
+    });
+    const dark = window.L.layerGroup([darkBase, darkLabels]);
+
+    streets.addTo(map);
+    window.L.control
+      .layers({ Streets: streets, Satellite: satellite, Dark: dark }, { Streets: streets }, {
+        position: "topright",
+        collapsed: true,
+      })
+      .addTo(map);
+    window.L.control.scale({ position: "bottomleft", imperial: false, maxWidth: 120 }).addTo(map);
+
+    const FullscreenControl = window.L.Control.extend({
+      onAdd: function () {
+        const button = window.L.DomUtil.create("button", "leaflet-bar map-fs-btn");
+        button.type = "button";
+        button.title = "Full screen";
+        button.setAttribute("aria-label", "Toggle full screen map");
+        button.innerHTML = "&#x26F6;";
+        window.L.DomEvent.on(button, "click", window.L.DomEvent.stop).on(button, "click", function () {
+          const node = map.getContainer();
+          if (document.fullscreenElement) {
+            document.exitFullscreen().catch(function () {});
+          } else if (node.requestFullscreen) {
+            node.requestFullscreen().catch(function () {});
+          }
+        });
+        return button;
+      },
+    });
+    map.addControl(new FullscreenControl({ position: "topright" }));
+
+    let errors = 0;
+    let switched = false;
+    streets.on("tileerror", function () {
+      errors += 1;
+      if (errors < 4 || switched) return;
+      switched = true;
+      try { map.removeLayer(streets); } catch (e) {}
+      satellite.addTo(map);
+      const note = el.querySelector(".map-empty-overlay small");
+      if (note) note.textContent = "Using satellite tiles after a network delay.";
+    });
+    return streets;
+  }
+
+  function emptyMapOverlay(person) {
+    const self = App.isPerson();
+    const name = person && person.name ? A.firstName(person.name) : "the person you care for";
+    const title = self ? "Turn on location sharing" : "No live position yet";
+    const text = self
+      ? "Tap <em>Share live location</em> below and allow your browser's location permission. Guardians will see this map update live."
+      : "Ask " + A.escapeHtml(name) + " to open their console, turn on <em>Share live location</em>, and allow location access. The map updates automatically.";
+    const action = self
+      ? '<button class="btn btn-primary btn-small" type="button" data-action="start-sharing">Share my location now</button>'
+      : '<button class="btn btn-outline btn-small" type="button" data-action="request-checkin">Request a check-in</button>';
+    return (
+      '<div class="map-empty-overlay">' +
+        '<div class="map-empty-card">' +
+          "<strong>" + title + "</strong>" +
+          "<span>" + text + "</span>" +
+          action +
+          "<small>Map layers: OpenStreetMap streets, Esri satellite and dark — no API key required.</small>" +
+        "</div>" +
+      "</div>"
+    );
+  }
+
   function initMap(elId, points, person, opts) {
     const el = document.getElementById(elId);
     if (!el) return;
     const valid = (points || []).filter(function (p) { return p && p.lat != null && p.lng != null; });
-    if (!valid.length) {
-      disposeElement(el);
-      el.innerHTML = App.mapFallbackHtml(null);
-      return;
-    }
     if (!window.L) {
       disposeElement(el);
-      el.innerHTML = App.mapFallbackHtml(valid[valid.length - 1]);
+      el.innerHTML = App.mapFallbackHtml(valid[valid.length - 1] || null);
       return;
     }
 
     disposeElement(el);
     const last = valid[valid.length - 1];
-    const center = [last.lat, last.lng];
     let map;
     try {
       map = window.L.map(el, { zoomControl: false, attributionControl: true, preferCanvas: true });
     } catch (err) {
-      el.innerHTML = App.mapFallbackHtml(last);
+      el.innerHTML = App.mapFallbackHtml(last || null);
       return;
     }
-    map.setView(center, valid.length > 1 ? 16 : 17);
     window.L.control.zoom({ position: "bottomright" }).addTo(map);
-    window.L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      subdomains: "abcd",
-      maxZoom: 20,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a> &copy; <a href="https://carto.com/" target="_blank" rel="noopener">CARTO</a>',
-    }).addTo(map);
 
+    if (!valid.length) {
+      map.setView([21.5, 79], 4);
+      addTiles(map, el);
+      el.insertAdjacentHTML("beforeend", emptyMapOverlay(person));
+      const emptyCard = el.querySelector(".map-empty-card");
+      if (emptyCard && window.L) {
+        window.L.DomEvent.disableClickPropagation(emptyCard);
+        window.L.DomEvent.disableScrollPropagation(emptyCard);
+      }
+      state.mapObj = {
+        map: map,
+        marker: null,
+        line: null,
+        circle: null,
+        trail: [],
+        person: person || null,
+        personId: person ? person.id : null,
+        follow: state.follow !== false,
+        elId: elId,
+        empty: true,
+      };
+      el._aegisMap = map;
+      setTimeout(function () {
+        if (!map._container || !document.body.contains(map._container)) return;
+        try { map.invalidateSize(); } catch (e) {}
+      }, 120);
+      return;
+    }
+
+    map.setView([last.lat, last.lng], valid.length > 1 ? 16 : 17);
+    addTiles(map, el);
+    const center = [last.lat, last.lng];
     const color = accent();
     const latlngs = valid.map(function (p) { return [p.lat, p.lng]; });
     let line = null;
@@ -100,6 +212,7 @@
       line: line,
       circle: circle,
       trail: latlngs.slice(),
+      person: person || null,
       personId: person ? person.id : null,
       follow: state.follow !== false,
       elId: elId,
@@ -143,8 +256,35 @@
 
   function updateMapMarker(loc) {
     const m = state.mapObj;
-    if (!m || !m.map || !m.marker || !loc) return;
+    if (!m || !m.map || !loc || loc.lat == null || loc.lng == null) return;
     const ll = [loc.lat, loc.lng];
+    const color = accent();
+
+    if (!m.marker && window.L) {
+      if (m.empty) {
+        m.empty = false;
+        const overlay = m.map.getContainer().querySelector(".map-empty-overlay");
+        if (overlay) overlay.remove();
+        m.map.setView(ll, 16);
+      }
+      if (m.person) {
+        m.marker = window.L.marker(ll, { icon: pinIcon(m.person), keyboard: false, alt: m.person.name }).addTo(m.map);
+      }
+      if (!m.circle && loc.accuracy) {
+        m.circle = window.L.circle(ll, {
+          radius: Math.max(5, Number(loc.accuracy) || 10),
+          color: color,
+          weight: 1,
+          opacity: 0.4,
+          fillColor: color,
+          fillOpacity: 0.07,
+        }).addTo(m.map);
+      }
+      m.trail = [ll];
+      return;
+    }
+
+    if (!m.marker) return;
     m.marker.setLatLng(ll);
     if (m.circle) {
       m.circle.setLatLng(ll);
@@ -152,7 +292,11 @@
     }
     m.trail.push(ll);
     if (m.trail.length > 1200) m.trail.shift();
-    if (m.line) m.line.setLatLngs(m.trail);
+    if (m.line) {
+      m.line.setLatLngs(m.trail);
+    } else if (m.trail.length > 1 && window.L) {
+      m.line = window.L.polyline(m.trail, { color: color, weight: 3, opacity: 0.62, lineJoin: "round" }).addTo(m.map);
+    }
     if (m.follow) m.map.panTo(ll, { animate: true, duration: 0.4 });
   }
 
@@ -249,6 +393,7 @@
       }
     }
     if (App.updateCountdown) App.updateCountdown();
+    if (window.AegisVoice && window.AegisVoice.sync) window.AegisVoice.sync();
   }
 
   App.render = render;
