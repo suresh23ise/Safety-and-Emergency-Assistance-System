@@ -16,7 +16,9 @@ Built with **FastAPI + SQLite + WebSockets** and a dependency-free frontend (van
 ## Features
 
 ### Person console (visually impaired user)
-- **One-tap safety statuses** — *I'm safe*, *Uncomfortable*, *Need help* — shared instantly with every linked guardian.
+- **Hands-free voice control** — tap **Voice** (or press `Alt+Shift+V`) and speak: *help* (two-step SOS), *I am safe*, *share my location*, *where am I*, *open messages*, *read messages*, *type a message*, *send*, *call my guardian*, *call 112*, *stop*. Replies are spoken aloud.
+- **Voice typing** — microphone buttons next to the chat composer, check-in note and emergency message let the person dictate instead of typing. Say *stop dictation* to finish.
+- **One-tap safety statuses** — *I'm safe*, *Uncomfortable*, *Need help* — shared instantly with every linked guardian. Voice control can trigger the same actions.
 - **Large SOS button** — press and hold for 2 seconds, review a 5-second confirmation countdown, then send. An accidental click never raises an alarm.
 - **Emergency alert dialog** — describe what is happening and attach the current position.
 - **Live GPS sharing** — uses the browser's real geolocation (`navigator.geolocation`) with an explicit on/off switch. Nothing is shared until the person enables it.
@@ -107,6 +109,7 @@ Browser (guardian)┘
 - The person's console posts positions to `POST /api/locations`; linked guardians receive them over the shared `/ws` WebSocket.
 - Status updates, SOS/emergency alerts, acknowledgements, resolutions, messages and check-in requests are pushed in realtime to the right users.
 - Every read is authorised server-side: guardians can only read people who explicitly linked them, and people can only read their own records.
+- The map is live even before the first GPS fix: it opens on a world view with a **No live position yet** card and a **Request a check-in** button. Leaflet is self-hosted under `static/vendor/leaflet/`, and tiles load from OpenStreetMap (default), Esri Satellite and Esri Dark Gray (all keyless) with automatic fallback. They need an internet connection but **no API key or Google Maps account**. If a marker never appears, the person must be signed in, have **Share live location** switched on, and allow the browser's location permission.
 
 ### Tech stack
 
@@ -117,7 +120,8 @@ Browser (guardian)┘
 | Database | SQLite (file-based, zero setup) |
 | Auth | HS256 JWT in an `HttpOnly` cookie, `scrypt` password hashing |
 | Frontend | Semantic HTML, modern CSS, vanilla JS classic scripts |
-| Maps | Leaflet 1.9 + CARTO tiles |
+| Maps | Leaflet 1.9 (self-hosted) + OpenStreetMap, Esri Satellite and Esri Dark Gray tiles — no API key |
+| Voice | Web Speech API (`SpeechRecognition` + `speechSynthesis`) |
 
 ---
 
@@ -146,6 +150,7 @@ Browser (guardian)┘
 │     ├─ aegis-views2.js   # guardian home/map/alerts/history views
 │     ├─ aegis-render.js   # rendering, Leaflet maps, navigation
 │     ├─ aegis-actions.js  # modals, SOS, sharing, chat, history, events
+│     ├─ aegis-voice.js    # hands-free voice control + voice typing
 │     └─ aegis-realtime.js # boot, WebSocket events, notifications
 └─ data/                   # created at runtime (git-ignored)
 ```
@@ -216,6 +221,9 @@ All endpoints return JSON. Authentication is the `safety_session` HttpOnly cooki
 - 3 text scales, reduce-motion and high-contrast modes.
 - Semantic landmarks, labelled controls, large touch targets and a high-contrast palette.
 - Voice guidance reads statuses, alerts and incoming check-in requests aloud.
+- **Hands-free voice control** for the person console: SOS (with a spoken yes/no confirmation), safety statuses, location sharing, navigation, message reading/sending, guardian calling and emergency calling. A floating **Voice** button stays available on every screen; `Alt+Shift+V` toggles it. Replies are spoken with `speechSynthesis`.
+- **Voice typing** fills the chat composer, check-in note and emergency description; say *stop dictation* when finished.
+- Voice control uses the browser's Web Speech API. Use Chrome, Edge or Safari with a microphone. If the browser blocks the microphone, spoken and on-screen instructions explain how to allow it.
 
 ---
 
